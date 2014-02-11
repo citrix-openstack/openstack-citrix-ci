@@ -89,7 +89,14 @@ class CONSTANTS:
             'review_repo': "https://review.openstack.org/openstack/tempest",
             'files_to_check' : [''],
             'files_to_ignore' : []
-            }
+            },
+        'devstack':{
+            'name':'devstack',
+            'repo_path':"/tmp/opt/stack/gerrit_cache/devstack",
+            'review_repo': "https://review.openstack.org/openstack-dev/devstack",
+            'files_to_check' : [''],
+            'files_to_ignore' : []
+            },
         }
 
 def db_execute(db, sql):
@@ -404,8 +411,6 @@ def are_files_matching_criteria(local_repo_path, review_repo_url, files_to_check
     """ Check out the even from the depot """
     """git show --name-only  --pretty="format:" HEAD # displays the files"""
     """  Issue checkout using command line"""
-#git fetch https://review.openstack.org/openstack/neutron refs/changes/24/57524/9 && git checkout FETCH_HEAD
-#git fetch https://review.openstack.org/openstack/tempest refs/changes/97/58697/16 && git checkout FETCH_HEAD
 
     """ Check the files and see if they are matching criteria"""
 
@@ -416,11 +421,12 @@ def are_files_matching_criteria(local_repo_path, review_repo_url, files_to_check
         logging.info("Initial clone of repo (may take a long time)")
         execute_command("git clone -o "+CONSTANTS.REVIEW_REPO_NAME+" "+review_repo_url+" "+local_repo_path)
 
-#git fetch https://review.openstack.org/openstack/neutron refs/changes/24/57524/9 &&    
     logging.info("Fetching the changes submitted")
     is_executed = execute_command("git checkout master")
     if not is_executed:
         return False, None
+    
+    #git fetch https://review.openstack.org/openstack/neutron refs/changes/24/57524/9 &&    
     is_executed = execute_command("git fetch " + review_repo_url + " " + change_ref)
     if not is_executed:
         return False, None
