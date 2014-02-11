@@ -30,78 +30,293 @@ import subprocess
 
 from pygerrit.client import GerritClient
 from pygerrit.error import GerritError
-from pygerrit.events import ErrorEvent, PatchsetCreatedEvent
+from pygerrit.events import ErrorEvent, PatchsetCreatedEvent, CommentAddedEvent
 from threading import Event
 import logging
 import optparse
+import re
 import sys
 import time
+import datetime
 import os
 
-import sharefile_upload
+import MySQLdb
 
 """ importing python git commands """
 from git import Repo
 
-
 class CONSTANTS:
-    REMOTE=True
+    REMOTE=False
     TEST_SCRIPT = '/spare/nsmkernel/usr.src/sdx/controlcenter/build_resources/test_infra/sync_and_test.sh'
     UPLOAD_SCRIPT = '/spare/nsmkernel/usr.src/sdx/controlcenter/build_resources/test_infra/sharefile_upload.py'
+    MYSQL_URL = '127.0.0.1'
+    MYSQL_USERNAME = 'root'
+    MYSQL_PASSWORD = ''
+    MYSQL_DB = 'openstack_ci'
     SSH_PERFORCE = 'root@10.102.31.70'
     TEMP_PATH_FOR_REMOTE = "/tmp"
+    POLL = 30
+    RECHECK_REGEXP = re.compile("^(recheck bug|recheck nobug)")
     RESULTS_OUT = "/tmp/result.out"
     UPLOAD_FILES = False
     VOTE=False
     VOTE_NEGATIVE=False
+    VOTE_MESSAGE = "Nova/Tempest testing %(result)s using XenAPI driver with XenServer 6.2.\n"+\
+                   "Please find the results at %(report)s and logs at %(log)s "
+    REVIEW_REPO_NAME='review'
     PROJECT_CONFIG={
-                    'neutron':{
-                               'name':'neutron',
-                               'repo_path':"/opt/stack/gerrit_depot/neutron",
-                               'review_repo': "gerrit_repo",
-                               'files_to_check' : ['neutron/services/loadbalancer/drivers/netscaler']
-                               }
-#                    'neutron':{
-#                               'name':'neutron',
-#                               'repo_path':"/opt/stack/gerrit_depot/neutron",
-#                               'review_repo': "gerrit_repo",
-#                               'files_to_check' : ['neutron/services/loadbalancer']
-#                               },
-#                    'tempest':{
-#                               'name':'tempest',
-#                               'repo_path':"/opt/stack/gerrit_depot/tempest",
-#                               'review_repo': "gerrit_repo",
-#                               'files_to_check' : ['tempest/api/network/test_load_balancer.py']
-#                               }
-                    }
+        'nova':{
+            'name':'nova',
+            'repo_path':"/tmp/opt/stack/gerrit_cache/nova",
+            'review_repo': "https://review.openstack.org/openstack/nova",
+            'files_to_check' : [''],
+            'files_to_ignore' : ['nova/virt/baremetal',
+                                 'nova/virt/disk',
+                                 'nova/virt/docker',
+                                 'nova/virt/hyperv',
+                                 'nova/virt/libvirt',
+                                 'nova/virt/vmwareapi',
+                                 'nova/tests/virt/baremetal',
+                                 'nova/tests/virt/disk',
+                                 'nova/tests/virt/docker',
+                                 'nova/tests/virt/hyperv',
+                                 'nova/tests/virt/libvirt',
+                                 'nova/tests/virt/vmwareapi',]
+            },
+        'tempest':{
+            'name':'tempest',
+            'repo_path':"/tmp/opt/stack/gerrit_cache/tempest",
+            'review_repo': "https://review.openstack.org/openstack/tempest",
+            'files_to_check' : [''],
+            'files_to_ignore' : []
+            }
+        }
+
+def db_execute(db, sql):
+    cur = db.cursor()
+    try:
+        cur.execute(sql)
+        db.commit()
+    except:
+        db.rollback()
+
+def db_query(db, sql):
+    cur = db.cursor()
+    cur.execute(sql)
+    results = cur.fetchall()
+    db.commit()
+    return results
+
+class Test():
+    def __init__(self, change_num=None, change_ref=None, project_name=None, commit_id=None):
+        self.project_name = project_name
+        self.change_num = change_num
+        self.change_ref = change_ref
+        self.state = 'queued'
+        self.created = datetime.datetime.now()
+        self.commit_id = commit_id
+        self.node_ip = None
+        self.result = None
+        self.logs_url = None
+        self.report_url = None
+
+    @classmethod
+    def fromRecord(cls, record):
+        retVal = Test()
+        i = 0
+        retVal.project_name=record[i]; i+=1
+        retVal.change_num=record[i]; i+=1
+        retVal.change_ref=record[i]; i+=1
+        retVal.state=record[i]; i+=1
+        retVal.created=record[i]; i+=1
+        retVal.commit_id=record[i]; i+=1
+
+        return retVal
+
+    @classmethod
+    def createTable(cls, db):
+        logging.info('Creating table...')
+        sql = 'CREATE TABLE IF NOT EXISTS test'+\
+              '('+\
+              ' project_name VARCHAR(50),' +\
+              ' change_num VARCHAR(10),' +\
+              ' change_ref VARCHAR(50),' +\
+              ' state VARCHAR(50),'+\
+              ' created DATETIME,' +\
+              ' commit_id VARCHAR(50),'+\
+              ' node_ip VARCHAR(50),'+\
+              ' result VARCHAR(10),'+\
+              ' logs_url VARCHAR(200),'+\
+              ' report_url VARCHAR(200),'+\
+              ' PRIMARY KEY (project_name, change_num)'+\
+              ')'
+        db_execute(db, sql)
+        logging.info('...Done')
+
+    @classmethod
+    def getAllWhere(cls, db, **kwargs):
+        sql = 'SELECT * FROM test'
+        if len(kwargs) > 0:
+            sql += ' WHERE'
+            
+            for key, value in kwargs.iteritems():
+                sql += ' %s="%s" AND'%(key, value)
+
+            assert sql[-4:] == " AND"
+            sql = sql[:-4] # Strip off the last AND
+        sql += ' ORDER BY created ASC'
+        results = db_query(db, sql)
+
+        retRecords = []
+        for result in results:
+            retRecords.append(Test.fromRecord(result))
+
+        return retRecords
     
+    @classmethod
+    def retrieve(cls, db, project_name, change_num):
+        sql = 'SELECT * FROM test WHERE'+\
+              ' project_name="%s"'+\
+              ' AND change_num="%s"'
+        results = db_query(db, sql%(project_name, change_num))
+        if len(results) == 0:
+            return None
+        
+        return Test.fromRecord(results[0])
+
+    def insert(self, db):
+        SQL = 'INSERT INTO test(project_name, change_num, change_ref, state, created, commit_id) '+\
+              'VALUES("%s","%s","%s","%s","%s","%s")'%(
+            self.project_name, self.change_num, self.change_ref,
+            self.state, self.created, self.commit_id)
+        db_execute(db, SQL)
+        logging.info("Job for %s queued"%self.change_num)
+
+    def update(self, db, **kwargs):
+        sql = 'UPDATE test SET'
+        for key, value in kwargs.iteritems():
+            sql += ' %s="%s",'%(key, value)
+            setattr(self, key, value)
+
+        assert sql[-1:] == ","
+        sql = sql[:-1] # Strip off the last ,
+        sql += ' WHERE project_name="%s" AND change_num="%s"'%(self.project_name, self.change_num)
+        db_execute(db, sql)
+
+    def delete(self, db):
+        if self.state == 'running':
+            self.killJob()
+        SQL = 'DELETE FROM test WHERE project_name="%s" AND change_num="%s"'
+        db_execute(db, SQL%(self.project_name, self.change_num))
+
+    def killJob(self):
+        logging.error('KILL JOB NOT IMPLEMENTED')
+
+    def __repr__(self):
+        return "%(project_name)s/%(change_ref)s commit:%(commit_id)s state:%(state)s created:%(created)s" %self
+
+    def __getitem__(self, item):
+        return getattr(self, item)
+
+def getNode():
+    return None
+
+class TestQueue():
+    def __init__(self, host, username, password, database_name):
+        self.db = MySQLdb.connect(host=host,
+                                  user=username,
+                                  passwd=password)
+        self.initDB(database_name)
+        
+    def initDB(self, database):
+        cur = self.db.cursor()
+        try:
+            logging.info('Using database...')
+            cur.execute('USE %s'%database)
+        except:
+            logging.info('Creating + using database...')
+            cur.execute('CREATE DATABASE %s'%database)
+            cur.execute('USE %s'%database)
+            
+        Test.createTable(self.db)
+    
+    def addTest(self, change_ref, project_name, commit_id):
+        change_num = change_ref.split('/')[3]
+        existing = Test.retrieve(self.db, project_name, change_num)
+        if existing:
+            if existing.change_ref == change_ref:
+                logging.info('Test already queued as %s'%(existing))
+                return
+            logging.info('Test for previous patchset (%s) already queued - replacing'%(existing))
+            existing.delete(self.db)
+        test = Test(change_num, change_ref, project_name, commit_id)
+        test.insert(self.db)
+
+    def triggerJobs(self):
+        allTests = Test.getAllWhere(self.db, state='queued')
+        count = len(allTests)
+        for test in allTests:
+            node_ip = getNode()
+            if node_ip is None:
+                logging.debug('Waiting for node for %d jobs...'%count)
+                return
+            count -= 1
+            test.update(self.db, node_ip=node_ip)
+            logging.info('Running job for %s'%test)
+            test.update(self.db, state='running')
+
+    def processResults(self):
+        allTests = Test.getAllWhere(self.db, state='running')
+        for test in allTests:
+            logging.info('Collected results for %s'%test)
+            test.update(self.db, result='Passed', log_url='http://logs', summary_url='http://summary')
+            test.update(self.db, state='collected')
+            deleteNode(test.node_ip)
+
+    def postResults(self):
+        allTests = Test.getAllWhere(self.db, state='collected')
+        if not CONSTANTS.VOTE:
+            logging.info('Not voting on %d tests which are ready to be voted on'%(len(allTests)))
+            return
+
+        for test in allTests:
+            logging.info('Posted results for %s'%test)
+            test.update(self.db, state='collected')
+
 def is_event_matching_criteria(event):
-    if isinstance(event, PatchsetCreatedEvent):
-        patchSetCreatedEvent = event
-        """ Can check in master branch also"""
-        if  patchSetCreatedEvent.change.branch=="master":
-            if get_project_event(patchSetCreatedEvent) != None:
-                logging.info("Event is matching event criteria")
-                return True
-        logging.info("Event is not matching event criteria")
+    if isinstance(event, CommentAddedEvent):
+        comment = event.comment
+        if not CONSTANTS.RECHECK_REGEXP.match(comment):
+            return False
+        logging.debug("Comment matched: %s"%comment)
+    elif not isinstance(event, PatchsetCreatedEvent):
+        return False
+    if event.change.branch=="master":
+        if get_project_config(event.change.project) != None:
+            logging.info("Event %s is matching event criteria"%event)
+            return True
     return False
 
-def get_project_event(patchSetCreatedEvent):
-    submitted_project = patchSetCreatedEvent.change.project
+def get_project_config(submitted_project):
     for project_name in CONSTANTS.PROJECT_CONFIG.keys():
         if submitted_project.endswith(project_name):
             project_config = CONSTANTS.PROJECT_CONFIG[project_name]
             return project_config
     return None
 
-def are_files_matching_criteria_event(patchSetCreatedEvent):
-    change_ref = patchSetCreatedEvent.patchset.ref
-    submitted_project = patchSetCreatedEvent.change.project
-    logging.info("Checking for file match criteria changeref: %s, project: %s" % (change_ref, submitted_project))
+def are_files_matching_criteria_event(event):
+    change_ref = event.patchset.ref
+    submitted_project = event.change.project
+    logging.info("Checking for file match criteria changeref: %s, project: %s" %
+                 (change_ref, submitted_project))
     
-    project_config = get_project_event(patchSetCreatedEvent)
+    project_config = get_project_config(event.change.project)
     if project_config != None:
-        files_matched, commitid = are_files_matching_criteria(project_config['repo_path'], project_config["review_repo"], project_config["files_to_check"], change_ref)
+        files_matched, commitid = are_files_matching_criteria(project_config['repo_path'],
+                                                              project_config["review_repo"],
+                                                              project_config["files_to_check"],
+                                                              project_config["files_to_ignore"],
+                                                              change_ref)
         if files_matched:
                 return True
     return False
@@ -131,7 +346,8 @@ def test_changes(change_ref, submitted_project, commitid, stacksh="SKIP"):
         if CONSTANTS.UPLOAD_FILES:
             if CONSTANTS.REMOTE:
                 logging.info("Uploading test output...")
-                p = subprocess.Popen(['ssh', CONSTANTS.SSH_PERFORCE, '/var/nsmkernel/usr.src/usr/local/bin/python' , CONSTANTS.UPLOAD_SCRIPT,result['LOG'], result['REPORT']],
+                p = subprocess.Popen(['ssh', CONSTANTS.SSH_PERFORCE, '/var/nsmkernel/usr.src/usr/local/bin/python',
+                                      CONSTANTS.UPLOAD_SCRIPT,result['LOG'], result['REPORT']],
                                       stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                 output, errors = p.communicate()
                 if errors:
@@ -154,19 +370,10 @@ def test_changes(change_ref, submitted_project, commitid, stacksh="SKIP"):
             else:
                 vote_num = "+1"
                 vote_result = "PASSED"
-            vote(commitid, vote_num, "LBaaS API testing " + vote_result + " with NetScaler providing LBaaS.\nPlease find the results at " + report_url + " and logs at " + log_url + " ")
+            vote(commitid, vote_num, CONSTANTS.VOTE_MESSAGE%{'result': vote_result,
+                                                             'report': report_url,
+                                                             'log': log_url})
         return True
-    
-def test_changes_event(patchSetCreatedEvent):
-    change_ref = patchSetCreatedEvent.patchset.ref
-#    submitted_project = patchSetCreatedEvent.change.project
-    project_config = get_project_event(patchSetCreatedEvent)
-    if project_config != None:
-        project_name = project_config['name']
-        logging.info("patchset values : " + repr(patchSetCreatedEvent))
-        commitid = patchSetCreatedEvent.patchset.revision
-        is_test_executed = test_changes(change_ref, project_name, commitid, "RUN")
-    return 
     
 def execute_command(command, delimiter=' '):
     command_as_array = command.split(delimiter)
@@ -180,9 +387,20 @@ def execute_command(command, delimiter=' '):
     
     return True
 
+def is_file_matching_criteria(submitted_file, files_to_check, files_to_ignore):
+    while True:
+        if submitted_file in files_to_check:
+            return True
+        if submitted_file in files_to_ignore:
+            return False
+        
+        if os.path.sep in submitted_file:
+            submitted_file = os.path.dirname(submitted_file)
+        else:
+            break
+    return '' in files_to_check
 
-
-def are_files_matching_criteria(local_repo_path, review_repo_name, files_to_check, change_ref):
+def are_files_matching_criteria(local_repo_path, review_repo_url, files_to_check, files_to_ignore, change_ref):
     """ Check out the even from the depot """
     """git show --name-only  --pretty="format:" HEAD # displays the files"""
     """  Issue checkout using command line"""
@@ -191,20 +409,24 @@ def are_files_matching_criteria(local_repo_path, review_repo_name, files_to_chec
 
     """ Check the files and see if they are matching criteria"""
 
-    logging.info("Fetching the changes submitted")
+    if not os.path.exists(local_repo_path):
+        os.makedirs(local_repo_path)
     os.chdir(local_repo_path)
+    if not os.path.exists(os.path.join(local_repo_path, '.git')):
+        logging.info("Initial clone of repo (may take a long time)")
+        execute_command("git clone -o "+CONSTANTS.REVIEW_REPO_NAME+" "+review_repo_url+" "+local_repo_path)
+
 #git fetch https://review.openstack.org/openstack/neutron refs/changes/24/57524/9 &&    
+    logging.info("Fetching the changes submitted")
     is_executed = execute_command("git checkout master")
     if not is_executed:
         return False, None
-    is_executed = execute_command("git fetch " + review_repo_name + " " + change_ref)
+    is_executed = execute_command("git fetch " + review_repo_url + " " + change_ref)
     if not is_executed:
         return False, None
     is_executed = execute_command("git checkout FETCH_HEAD")
     if not is_executed:
         return False, None
-#    review_remote.fetch(change_ref)
-#    repo.git.checkout("FETCH_HEAD")
     
     repo = Repo(local_repo_path)
 
@@ -212,7 +434,7 @@ def are_files_matching_criteria(local_repo_path, review_repo_name, files_to_chec
     # resetting firs the reference to master branch
     review_remote = None
     for remote in repo.remotes:
-        if remote.name == review_repo_name:
+        if remote.name == CONSTANTS.REVIEW_REPO_NAME:
             review_remote=remote
             break
     if not review_remote:
@@ -223,10 +445,9 @@ def are_files_matching_criteria(local_repo_path, review_repo_name, files_to_chec
     commitid = headcommit.hexsha
     submitted_files = headcommit.stats.files.keys()
     for submitted_file in submitted_files:
-        for file_to_check in files_to_check:
-            if file_to_check in submitted_file:
-                logging.info("Some files changed match the test criteria")
-                return True, commitid
+        if is_file_matching_criteria(submitted_file, files_to_check, files_to_ignore):
+            logging.info("Some files changed match the test criteria")
+            return True, commitid
 
     return False, None
 
@@ -246,12 +467,16 @@ def vote(commitid, vote_num, message):
         else:
             logging.info("Successfully voted " + str(vote_num) + " for change: " + commitid)
 
-    
-def record_event_details(event):
-    pass
+def queue_event(queue, event):
+    logging.info("patchset values : %s" %event)
+    change_ref = event.patchset.ref
+    project_config = get_project_config(event.change.project)
+    if project_config != None:
+        project_name = project_config['name']
+        commitid = event.patchset.revision
+        queue.addTest(change_ref, project_name, commitid)
 
 def parse_result():
-
     result = {}
     if CONSTANTS.REMOTE:
         p = subprocess.Popen(['ssh', CONSTANTS.SSH_PERFORCE, 'cat', CONSTANTS.RESULTS_OUT],stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -275,27 +500,14 @@ def parse_result():
         f.close()
     return result
 
-def inform_builder(patchSetCreatedEvent):
-    # TODO: Ideally this should be called in a separate thread, picking from database 
-    test_changes_event(patchSetCreatedEvent)
-
-
 def check_for_change_ref(option, opt_str, value, parser):
     if not parser.values.change_ref:
         raise OptionValueError("can't use %s, Please provide --change_ref/-c before %s" % (opt_str, opt_str))
     setattr(parser.values, option.dest, value)
-    if parser.values.vote:
-        if parser.values.vote != "+1" and parser.values.vote != "-1":
-            raise OptionValueError("invalid use of %s, Please provide +1/-1" % (opt_str))
-
-def check_for_vote(option, opt_str, value, parser):
-    if not parser.values.vote:
-        raise OptionValueError("can't use %s, Please provide --vote before %s" % (opt_str, opt_str))
-    setattr(parser.values, option.dest, value)
-
 
 def _main():
     usage = "usage: %prog [options]"
+    
     parser = optparse.OptionParser(usage=usage)
     # 198.101.231.251 is review.openstack.org. For some vague reason the dns entry from inside pygerrit is not resolved.
     # It throws an error "ERROR Gerrit error: Failed to connect to server: [Errno 101] Network is unreachable"
@@ -306,72 +518,45 @@ def _main():
                       type='int', default=29418,
                       help='port number (default: %default)')
     parser.add_option('-u', '--username', dest='username',
-                      help='username', default='vijayvenkatachalam')
-    parser.add_option('-b', '--blocking', dest='blocking',
-                      action='store_true',
-                      help='block on event get (default: False)')
-    parser.add_option('-t', '--timeout', dest='timeout',
-                      default=None, type='int',
-                      help='timeout (seconds) for blocking event get '
-                           '(default: None)')
+                      help='username', default='bob-ball')
     parser.add_option('-v', '--verbose', dest='verbose',
                       action='store_true',default=False,
                       help='enable verbose (debug) logging')
-    parser.add_option('-i', '--ignore-stream-errors', dest='ignore',
-                      action='store_true',
-                      help='do not exit when an error event is received')
     parser.add_option('-c', '--change-ref', dest='change_ref',
                       action="store", type="string",
                       help="to be provided if required to do one time job on a change-ref")
-    
     parser.add_option('-x', '--commit-id', dest='commitid',
                       action="callback", callback=check_for_change_ref, type="string",
                       help="to be provided if required to do one time job on a change-id")
-
     parser.add_option('-j', '--project', dest='project',
                       action="callback", callback=check_for_change_ref, type="string",
                       help="project of the change-ref provided")
-    parser.add_option("-n", '--vote-num',  dest='vote', 
-                      action="callback", callback=check_for_change_ref, type="string",
-                      help="the vote, should be either '+1' or '-1'")
-    parser.add_option("-m", '--vote-message',  dest='message', 
-                      action="callback", callback=check_for_vote, type="string",
-                      help="the message that has to be sent for voting")
-
 
     (options, _args) = parser.parse_args()
-    if options.timeout and not options.blocking:
-        parser.error('Can only use --timeout with --blocking')
-
     if options.change_ref and not options.project:
         parser.error('Can only use --change_ref with --project')
 
-    if options.vote and not options.message:
-        parser.error('Can only use --vote with --vote-message')
-
-    if options.vote and not options.commitid:
-        parser.error('Can only use --vote with --commit-id')
-
     level = logging.DEBUG if options.verbose else logging.INFO
-    logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
+    logging.basicConfig(format=u'%(asctime)s %(levelname)s %(message)s',
                         level=level)
 
+    queue = TestQueue(CONSTANTS.MYSQL_URL, CONSTANTS.MYSQL_USERNAME, CONSTANTS.MYSQL_PASSWORD, CONSTANTS.MYSQL_DB)
+
     if options.change_ref:
-        # One time job needs to be performed.
-        if options.vote:
-            # Just voting needs to be done, no need of testing
-            vote(options.commitid, options.vote, options.message)
+        # Execute tests and vote
+        if options.project not in CONSTANTS.PROJECT_CONFIG:
+            logging.info("Project specified does not match criteria")
+            return
+        project_config = CONSTANTS.PROJECT_CONFIG[options.project]
+        files_matched, commitid = are_files_matching_criteria(project_config['repo_path'],
+                                                              project_config["review_repo"],
+                                                              project_config["files_to_check"],
+                                                              project_config["files_to_ignore"],
+                                                              options.change_ref)
+        if files_matched:
+            queue.addTest(options.change_ref, options.project, commitid)
         else:
-            # Execute tests and vote
-            if options.project not in CONSTANTS.PROJECT_CONFIG:
-                logging.info("Project specified does not match criteria")
-                return
-            project_config = CONSTANTS.PROJECT_CONFIG[options.project]
-            files_matched, commitid = are_files_matching_criteria(project_config['repo_path'], project_config["review_repo"], project_config["files_to_check"], options.change_ref)
-            if files_matched:
-                test_changes(options.change_ref, options.project, commitid, "RUN")
-            else:
-                logging.error("Changeref specified does not match file match criteria")
+            logging.error("Changeref specified does not match file match criteria")
         return
     
     # Starting the loop for listening to Gerrit events
@@ -392,24 +577,21 @@ def _main():
     errors = Event()
     try:
         while True:
-            event = gerrit.get_event(block=options.blocking,
-                                     timeout=options.timeout)
-            if event:
+            event = gerrit.get_event(block=False)
+            while event:
                 logging.debug("Event: %s", event)
                 """ Logic starts here """
                 if is_event_matching_criteria(event):
                     if are_files_matching_criteria_event(event):
-                        record_event_details(event)
-                        inform_builder(event)
-                        
-                if isinstance(event, ErrorEvent) and not options.ignore:
+                        queue_event(queue, event)
+
+                if isinstance(event, ErrorEvent):
                     logging.error(event.error)
                     errors.set()
-                    break
-            else:
-                logging.debug("No event")
-                if not options.blocking:
-                    time.sleep(1)
+                event = gerrit.get_event(block=False)
+            queue.triggerJobs()
+            queue.processResults()
+            time.sleep(CONSTANTS.POLL)
     except KeyboardInterrupt:
         logging.info("Terminated by user")
     finally:
@@ -421,22 +603,4 @@ def _main():
         return 1
 
 if __name__ == "__main__":
-#    test_changes("aa", "bb")
-#    result = parse_result()
-#    logging.info("Test result: " + str(result))
-#    logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
-#                        level=logging.DEBUG)
-#
-#    project_config = CONSTANTS.PROJECT_CONFIG["neutron"]
-#    change_ref = "refs/changes/70/65070/1"
-#    are_files_matching_criteria(project_config['repo_path'], project_config["review_repo"], project_config["files_to_check"], change_ref)
-#    vote_cmd = """ls -l /opt/stack/.ssh"""
-
-#    vote_cmd = """ssh -i /opt/stack/.ssh/service_account -p 29418 review.openstack.org gerrit review"""
-#    is_executed = execute_command(vote_cmd)
-#    if not is_executed:
-#        logging.error("Error: Could not vote. Voting failed for change: ")
-#    else:
-#        logging.info("Successfully voted " + str(1) + " for change: ")
-
     sys.exit(_main())
