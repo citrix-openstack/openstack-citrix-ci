@@ -32,39 +32,58 @@ from pygerrit.client import GerritClient
 from pygerrit.error import GerritError
 from pygerrit.events import ErrorEvent, PatchsetCreatedEvent, CommentAddedEvent
 from threading import Event
+import datetime
 import logging
 import optparse
+import os, os.path
 import re
+import shutil
 import sys
+import tempfile
 import time
-import datetime
-import os
 
+import paramiko
 import MySQLdb
+from nodepool import nodedb, nodepool
 
 """ importing python git commands """
 from git import Repo
 
+QUEUED=1
+RUNNING=2
+COLLECTED=3
+
 class CONSTANTS:
-    REMOTE=False
-    TEST_SCRIPT = '/spare/nsmkernel/usr.src/sdx/controlcenter/build_resources/test_infra/sync_and_test.sh'
-    UPLOAD_SCRIPT = '/spare/nsmkernel/usr.src/sdx/controlcenter/build_resources/test_infra/sharefile_upload.py'
+    SFTP_HOST = 'int-ca.downloads.xensource.com'
+    SFTP_USERNAME = 'svcacct_openstack'
+    SFTP_KEY = '/usr/workspace/scratch/openstack/infrastructure.hg/puppet/modules/jenkins/files/downloads-id_rsa'
+    SFTP_BASE = '/var/www/html/'
+    SFTP_COMMON = 'ca.downloads.xensource.com/OpenStack/xenserver-ci'
+    NODEPOOL_CONFIG = '/etc/nodepool/nodepool.yaml'
+    NODEPOOL_IMAGE = 'nodepool-fake'
     MYSQL_URL = '127.0.0.1'
     MYSQL_USERNAME = 'root'
     MYSQL_PASSWORD = ''
     MYSQL_DB = 'openstack_ci'
-    SSH_PERFORCE = 'root@10.102.31.70'
-    TEMP_PATH_FOR_REMOTE = "/tmp"
     POLL = 30
     RECHECK_REGEXP = re.compile("^(recheck bug|recheck nobug)")
-    RESULTS_OUT = "/tmp/result.out"
-    UPLOAD_FILES = False
-    VOTE=False
-    VOTE_NEGATIVE=False
-    VOTE_MESSAGE = "Nova/Tempest testing %(result)s using XenAPI driver with XenServer 6.2.\n"+\
-                   "Please find the results at %(report)s and logs at %(log)s "
+    VOTE = False
+    VOTE_NEGATIVE = False
+    VOTE_SERVICE_ACCOUNT = False
+    VOTE_MESSAGE = "%(result)s using XenAPI driver with XenServer 6.2.\n"+\
+                   "* Results: %(report)s\n* Logs: %(log)s\n\n"+\
+                   "XenServer CI contact: BobBall on IRC or openstack@citrix.com."
     REVIEW_REPO_NAME='review'
     PROJECT_CONFIG={
+        'sandbox':{
+            'name':'sandbox',
+            'repo_path':"/tmp/opt/stack/gerrit_cache/sandbox",
+            'review_repo': "https://review.openstack.org/openstack-dev/sandbox",
+            'files_to_check' : [''],
+            'files_to_ignore' : []
+            }
+    }
+    __REAL_PROJECT_CONFIG={
         'nova':{
             'name':'nova',
             'repo_path':"/tmp/opt/stack/gerrit_cache/nova",
@@ -119,9 +138,10 @@ class Test():
         self.project_name = project_name
         self.change_num = change_num
         self.change_ref = change_ref
-        self.state = 'queued'
+        self.state = QUEUED
         self.created = datetime.datetime.now()
         self.commit_id = commit_id
+        self.node_id = None
         self.node_ip = None
         self.result = None
         self.logs_url = None
@@ -137,6 +157,12 @@ class Test():
         retVal.state=record[i]; i+=1
         retVal.created=record[i]; i+=1
         retVal.commit_id=record[i]; i+=1
+        retVal.node_id=record[i]; i+=1
+        retVal.node_ip=record[i]; i+=1
+        retVal.result=record[i]; i+=1
+        retVal.logs_url=record[i]; i+=1
+        retVal.report_url=record[i]; i+=1
+        retVal.updated=record[i]; i+=1
 
         return retVal
 
@@ -148,13 +174,15 @@ class Test():
               ' project_name VARCHAR(50),' +\
               ' change_num VARCHAR(10),' +\
               ' change_ref VARCHAR(50),' +\
-              ' state VARCHAR(50),'+\
+              ' state INT,'+\
               ' created DATETIME,' +\
               ' commit_id VARCHAR(50),'+\
+              ' node_id INT,'+\
               ' node_ip VARCHAR(50),'+\
               ' result VARCHAR(10),'+\
               ' logs_url VARCHAR(200),'+\
               ' report_url VARCHAR(200),'+\
+              ' updated TIMESTAMP default CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,' +\
               ' PRIMARY KEY (project_name, change_num)'+\
               ')'
         db_execute(db, sql)
@@ -211,13 +239,21 @@ class Test():
         db_execute(db, sql)
 
     def delete(self, db):
-        if self.state == 'running':
-            self.killJob()
         SQL = 'DELETE FROM test WHERE project_name="%s" AND change_num="%s"'
         db_execute(db, SQL%(self.project_name, self.change_num))
 
-    def killJob(self):
-        logging.error('KILL JOB NOT IMPLEMENTED')
+    def runTest(self):
+        logging.error('*** runTest NOT WRITTEN %s'%(self))
+
+    def isRunning(self):
+        logging.error('*** isRunning NOT WRITTEN %s'%(self))
+        return False
+
+    def retrieveResults(self, dest_path):
+        logging.error('*** retrieveResults NOT WRITTEN %s'%(self))
+        with open(os.path.join(dest_path, 'result'), 'w') as result_file:
+            result_file.write('%s'%self)
+        return 'Failed'
 
     def __repr__(self):
         return "%(project_name)s/%(change_ref)s commit:%(commit_id)s state:%(state)s created:%(created)s" %self
@@ -225,8 +261,54 @@ class Test():
     def __getitem__(self, item):
         return getattr(self, item)
 
-def getNode():
-    return None
+class NodePool():
+    def __init__(self, image):
+        self.pool = nodepool.NodePool(CONSTANTS.NODEPOOL_CONFIG)
+        config = self.pool.loadConfig()
+        self.pool.reconfigureDatabase(config)
+        self.pool.setConfig(config)
+        self.image = image
+
+    def getNode(self):
+        with self.pool.getDB().getSession() as session:
+            for node in session.getNodes():
+                if node.image_name != self.image:
+                    continue
+                if node.state != nodedb.READY:
+                    continue
+                # Allocate this node
+                node.state = nodedb.HOLD
+                return node.id, node.ip
+        return None, None
+
+    def deleteNode(self, node_id):
+        self.pool.reconfigureManagers(self.pool.config)
+        with self.pool.getDB().getSession() as session:
+            node = session.getNode(node_id)
+            self.pool.deleteNode(session, node)
+
+def mkdir_recursive(sftp, target):
+    try:
+        sftp.chdir(target)
+    except:
+        mkdir_recursive(sftp, os.path.dirname(target))
+        sftp.mkdir(target)
+
+def upload_logs(source_dir, target_dir):
+    transport = paramiko.Transport((CONSTANTS.SFTP_HOST, 22))
+    my_key = paramiko.RSAKey.from_private_key_file(CONSTANTS.SFTP_KEY)
+    transport.connect(username=CONSTANTS.SFTP_USERNAME, pkey=my_key)
+    sftp = paramiko.SFTPClient.from_transport(transport)
+
+    # Assume the common base directory already exists
+    mkdir_recursive(sftp, target_dir)
+
+    existing_files = sftp.listdir(target_dir)
+    for filename in os.listdir(source_dir):
+        if filename in existing_files:
+            sftp.remove(os.path.join(target_dir, filename))
+        sftp.put(os.path.join(source_dir, filename),
+                 os.path.join(target_dir, filename))
 
 class TestQueue():
     def __init__(self, host, username, password, database_name):
@@ -234,6 +316,7 @@ class TestQueue():
                                   user=username,
                                   passwd=password)
         self.initDB(database_name)
+        self.nodepool = NodePool(CONSTANTS.NODEPOOL_IMAGE)
         
     def initDB(self, database):
         cur = self.db.cursor()
@@ -256,39 +339,57 @@ class TestQueue():
                 return
             logging.info('Test for previous patchset (%s) already queued - replacing'%(existing))
             existing.delete(self.db)
+            self.nodepool.deleteNode(existing.node_id)
         test = Test(change_num, change_ref, project_name, commit_id)
         test.insert(self.db)
 
     def triggerJobs(self):
-        allTests = Test.getAllWhere(self.db, state='queued')
+        allTests = Test.getAllWhere(self.db, state=QUEUED)
         count = len(allTests)
         for test in allTests:
-            node_ip = getNode()
-            if node_ip is None:
+            node_id, node_ip = self.nodepool.getNode()
+            if node_id is None:
                 logging.debug('Waiting for node for %d jobs...'%count)
                 return
             count -= 1
-            test.update(self.db, node_ip=node_ip)
+            test.update(self.db, node_id=node_id, node_ip=node_ip)
             logging.info('Running job for %s'%test)
-            test.update(self.db, state='running')
+            test.runTest()
+            test.update(self.db, state=RUNNING)
 
     def processResults(self):
-        allTests = Test.getAllWhere(self.db, state='running')
+        allTests = Test.getAllWhere(self.db, state=RUNNING)
         for test in allTests:
-            logging.info('Collected results for %s'%test)
-            test.update(self.db, result='Passed', log_url='http://logs', summary_url='http://summary')
-            test.update(self.db, state='collected')
-            deleteNode(test.node_ip)
+            if test.isRunning():
+                continue
+            
+            tmpPath = tempfile.mkdtemp(suffix=test.change_num)
+            try:
+                result = test.retrieveResults(tmpPath)
+                logging.info('Collected results for %s'%test)
+                result_path = os.path.join(CONSTANTS.SFTP_COMMON, test.change_ref)
+                upload_logs(tmpPath, os.path.join(CONSTANTS.SFTP_BASE, result_path))
+                logging.info('Uploaded results for %s'%test)
+                test.update(self.db, result=result,
+                            logs_url='https://%s/logs.tgz'%result_path,
+                            report_url='https://%s/summary.gz'%result_path)
+                test.update(self.db, state=COLLECTED)
+            finally:
+                shutil.rmtree(tmpPath)
+            self.nodepool.deleteNode(test.node_id)
 
     def postResults(self):
-        allTests = Test.getAllWhere(self.db, state='collected')
-        if not CONSTANTS.VOTE:
-            logging.info('Not voting on %d tests which are ready to be voted on'%(len(allTests)))
-            return
-
+        allTests = Test.getAllWhere(self.db, state=COLLECTED)
         for test in allTests:
-            logging.info('Posted results for %s'%test)
-            test.update(self.db, state='collected')
+            if CONSTANTS.VOTE:
+                logging.info('Posted results for %s (%s, %s, %s)'%(test, test.result, test.logs_url, test.report_url))
+                message=CONSTANTS.VOTE_MESSAGE%{'result':test.result, 'report': test.report_url, 'log':test.logs_url}
+                vote_num = "+1" if test.result == 'Passed' else "-1"
+                vote(test.commit_id, vote_num, message)
+            else:
+                logging.info('Not voting on test %s (%s, %s, %s)'%(test, test.result, test.logs_url, test.report_url))
+            test.delete(self.db)
+
 
 def is_event_matching_criteria(event):
     if isinstance(event, CommentAddedEvent):
@@ -328,67 +429,13 @@ def are_files_matching_criteria_event(event):
                 return True
     return False
     
-def test_changes(change_ref, submitted_project, commitid, stacksh="SKIP"):
-    logging.info("Calling test procedures to test changeref: %s, project: %s" % (change_ref, submitted_project))
-    if CONSTANTS.REMOTE:
-        p = subprocess.Popen(['ssh', CONSTANTS.SSH_PERFORCE , CONSTANTS.TEST_SCRIPT, stacksh, change_ref, 
-                              submitted_project],stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    else:
-        p = subprocess.Popen([CONSTANTS.TEST_SCRIPT, stacksh, change_ref, 
-                              submitted_project],stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        
-    output, errors = p.communicate()
-    if errors:
-        logging.error("Error: Could not test changes for change: " + change_ref + ". Failed with message: " + errors)
-        return False
-    else:
-        logging.info("Successfully tested changes for change: " + change_ref)
-        result = parse_result()
-        if 'LOG' not in result or 'REPORT' not in result:
-            logging.error("Error: Could not read result...")
-            return False
-        else:
-            logging.info("Report of test run: " + result['REPORT'])
-             
-        if CONSTANTS.UPLOAD_FILES:
-            if CONSTANTS.REMOTE:
-                logging.info("Uploading test output...")
-                p = subprocess.Popen(['ssh', CONSTANTS.SSH_PERFORCE, '/var/nsmkernel/usr.src/usr/local/bin/python',
-                                      CONSTANTS.UPLOAD_SCRIPT,result['LOG'], result['REPORT']],
-                                      stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                output, errors = p.communicate()
-                if errors:
-                    logging.error("Error: Could not upload test output: " + errors)
-                    return False
-                else:
-                    logging.debug("Successfully uploaded test output...")
-                    
-                result = parse_result()
-                log_url = result['LOGURL']
-                report_url = result['REPORTURL']
-            else:
-                log_url = sharefile_upload.logs_upload(result['LOG'], result['REPORT'])
-
-            # Now Vote
-            
-            if 'failure' in result['REPORT']:
-                vote_num = "-1"
-                vote_result = "FAILED"
-            else:
-                vote_num = "+1"
-                vote_result = "PASSED"
-            vote(commitid, vote_num, CONSTANTS.VOTE_MESSAGE%{'result': vote_result,
-                                                             'report': report_url,
-                                                             'log': log_url})
-        return True
-    
 def execute_command(command, delimiter=' '):
     command_as_array = command.split(delimiter)
     logging.debug("Executing command: " + str(command)) 
     p = subprocess.Popen(command_as_array,stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     output, errors = p.communicate()
     if p.returncode != 0:
-        logging.error("Error: Could not exuecute command " + str(command)  + ". Failed with errors " + str(errors))
+        logging.error("Error: Could not execute command " + str(command)  + ". Failed with errors " + str(errors))
         return False
     logging.debug("Output command: " + str(output))
     
@@ -461,17 +508,20 @@ def vote(commitid, vote_num, message):
     #ssh -p 29418 review.example.com gerrit review -m '"Test failed on MegaTestSystem <http://megatestsystem.org/tests/1234>"'
     # --verified=-1 c0ff33
     logging.info("Going to vote commitid %s, vote %s, message %s" % (commitid, vote_num, message))
-    if CONSTANTS.VOTE:
-        if not CONSTANTS.VOTE_NEGATIVE and vote_num == "-1":
-            logging.error("Did not vote -1 for commitid %s, vote %s" % (commitid, vote_num))
-            return
-        vote_cmd = """ssh$-i$/opt/stack/.ssh/service_account$-p$29418$review.openstack.org$gerrit$review"""
-        vote_cmd = vote_cmd + "$-m$'\"" + message + "\"'$--verified=" + vote_num + "$" + commitid
-        is_executed = execute_command(vote_cmd,'$')
-        if not is_executed:
-            logging.error("Error: Could not vote. Voting failed for change: " + commitid)
-        else:
-            logging.info("Successfully voted " + str(vote_num) + " for change: " + commitid)
+    if not CONSTANTS.VOTE_NEGATIVE and vote_num == "-1":
+        logging.error("Did not vote -1 for commitid %s, vote %s" % (commitid, vote_num))
+        vote_num = "0"
+        message += "\n\nNegative vote suppressed"
+    vote_cmd = """ssh$-p$29418$review.openstack.org$gerrit$review"""
+    vote_cmd = vote_cmd + "$-m$'" + message + "'"
+    if CONSTANTS.VOTE_SERVICE_ACCOUNT:
+        vote_cmd = vote_cmd + "$--verified=" + vote_num
+    vote_cmd = vote_cmd + "$" + commitid
+    is_executed = execute_command(vote_cmd,'$')
+    if not is_executed:
+        logging.error("Error: Could not vote. Voting failed for change: " + commitid)
+    else:
+        logging.info("Successfully voted " + str(vote_num) + " for change: " + commitid)
 
 def queue_event(queue, event):
     logging.info("patchset values : %s" %event)
@@ -481,30 +531,6 @@ def queue_event(queue, event):
         project_name = project_config['name']
         commitid = event.patchset.revision
         queue.addTest(change_ref, project_name, commitid)
-
-def parse_result():
-    result = {}
-    if CONSTANTS.REMOTE:
-        p = subprocess.Popen(['ssh', CONSTANTS.SSH_PERFORCE, 'cat', CONSTANTS.RESULTS_OUT],stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-#        p = subprocess.Popen(['cat', CONSTANTS.TEMP_PATH_FOR_REMOTE+"/1.html"],stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        output, errors = p.communicate()
-        if errors:
-            logging.error("Error: Understanding the result: " + errors)
-        else:
-            logging.debug("Successfully parsed the result.\n****RESULT****\n " + output)
-            
-            lines = output.splitlines()
-            for line in lines:
-                (key,value) = line.split('=')
-                result[key]=value.rstrip()
-    else:
-        file_path = CONSTANTS.RESULTS_OUT
-        f = open(file_path, 'r')
-        for line in f:
-            (key,value) = line.split('=')
-            result[key]=value.rstrip()
-        f.close()
-    return result
 
 def check_for_change_ref(option, opt_str, value, parser):
     if not parser.values.change_ref:
@@ -597,6 +623,7 @@ def _main():
                 event = gerrit.get_event(block=False)
             queue.triggerJobs()
             queue.processResults()
+            queue.postResults()
             time.sleep(CONSTANTS.POLL)
     except KeyboardInterrupt:
         logging.info("Terminated by user")
