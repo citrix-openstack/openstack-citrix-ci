@@ -67,12 +67,12 @@ class CONSTANTS:
     MYSQL_DB = 'openstack_ci'
     POLL = 30
     RECHECK_REGEXP = re.compile("^(recheck bug|recheck nobug)")
-    VOTE = False
+    VOTE = True
     VOTE_NEGATIVE = False
     VOTE_SERVICE_ACCOUNT = False
     VOTE_MESSAGE = "%(result)s using XenAPI driver with XenServer 6.2.\n"+\
                    "* Results: %(report)s\n* Logs: %(log)s\n\n"+\
-                   "XenServer CI contact: BobBall on IRC or openstack@citrix.com."
+                   "XenServer CI contact: openstack@citrix.com."
     REVIEW_REPO_NAME='review'
     PROJECT_CONFIG={
         'sandbox':{
@@ -381,7 +381,7 @@ class TestQueue():
     def postResults(self):
         allTests = Test.getAllWhere(self.db, state=COLLECTED)
         for test in allTests:
-            if CONSTANTS.VOTE:
+            if CONSTANTS.VOTE_COMMENT:
                 logging.info('Posted results for %s (%s, %s, %s)'%(test, test.result, test.logs_url, test.report_url))
                 message=CONSTANTS.VOTE_MESSAGE%{'result':test.result, 'report': test.report_url, 'log':test.logs_url}
                 vote_num = "+1" if test.result == 'Passed' else "-1"
@@ -550,7 +550,7 @@ def _main():
                       type='int', default=29418,
                       help='port number (default: %default)')
     parser.add_option('-u', '--username', dest='username',
-                      help='username', default='bob-ball')
+                      help='username', default='citrix_xenserver_ci')
     parser.add_option('-v', '--verbose', dest='verbose',
                       action='store_true',default=False,
                       help='enable verbose (debug) logging')
