@@ -243,6 +243,17 @@ class Test():
         db_execute(db, SQL%(self.project_name, self.change_num))
 
     def runTest(self):
+        environment  = 'export ZUUL_URL=https://review.openstack.org;'
+        environment += ' export ZUUL_REF=%s;'%test.change_ref
+        environment += ' export PYTHONUNBUFFERED=true;'
+        environment += ' export DEVSTACK_GATE_TEMPEST=1;'
+        environment += ' export DEVSTACK_GATE_TEMPEST_FULL=1;'
+        #environment += ' export DEVSTACK_GATE_TEMPEST_FULL=0;'
+        environment += ' export DEVSTACK_GATE_VIRT_DRIVER=xenapi;'
+        # Set gate timeout to 2 hours
+        environment += ' export DEVSTACK_GATE_TIMEOUT=240;'
+        
+        # SSH to host + run environment + devstack-vm-gate-wrap.sh
         logging.error('*** runTest NOT WRITTEN %s'%(self))
 
     def isRunning(self):
@@ -250,9 +261,10 @@ class Test():
         return False
 
     def retrieveResults(self, dest_path):
-        logging.error('*** retrieveResults NOT WRITTEN %s'%(self))
-        with open(os.path.join(dest_path, 'result'), 'w') as result_file:
-            result_file.write('%s'%self)
+        copy_logs('/opt/stack/logs', dest_path,
+                  self.node_ip, CONSTANTS.NODE_USERNAME,
+                  paramiko.RSAKey.from_private_key_file(CONSTANTS.NODE_KEY),
+                  upload=False)
         return 'Failed'
 
     def __repr__(self):
@@ -287,28 +299,36 @@ class NodePool():
             node = session.getNode(node_id)
             self.pool.deleteNode(session, node)
 
-def mkdir_recursive(sftp, target):
+def mkdir_recursive(target, target_dir):
     try:
-        sftp.chdir(target)
+        target.chdir(target_dir)
     except:
-        mkdir_recursive(sftp, os.path.dirname(target))
-        sftp.mkdir(target)
+        mkdir_recursive(target, os.path.dirname(target_dir))
+        target.mkdir(target_dir)
 
-def upload_logs(source_dir, target_dir):
+def copy_logs(source_dir, target_dir, host, username, key, upload=True):
     transport = paramiko.Transport((CONSTANTS.SFTP_HOST, 22))
-    my_key = paramiko.RSAKey.from_private_key_file(CONSTANTS.SFTP_KEY)
-    transport.connect(username=CONSTANTS.SFTP_USERNAME, pkey=my_key)
+    transport.connect(username=CONSTANTS.SFTP_USERNAME, pkey=key)
     sftp = paramiko.SFTPClient.from_transport(transport)
 
-    # Assume the common base directory already exists
-    mkdir_recursive(sftp, target_dir)
+    if upload:
+        source = os
+        target = sftp
+        sftp_method = sftp.put
+    else:
+        source = sftp
+        target = os
+        sftp_method = sftp.get
+        
+    mkdir_recursive(target, target_dir)
 
-    existing_files = sftp.listdir(target_dir)
-    for filename in os.listdir(source_dir):
+    existing_files = target.listdir(target_dir)
+    for filename in source.listdir(source_dir):
         if filename in existing_files:
-            sftp.remove(os.path.join(target_dir, filename))
-        sftp.put(os.path.join(source_dir, filename),
-                 os.path.join(target_dir, filename))
+            target.remove(os.path.join(target_dir, filename))
+        
+        sftp_method(os.path.join(source_dir, filename),
+                    os.path.join(target_dir, filename))
 
 class TestQueue():
     def __init__(self, host, username, password, database_name):
@@ -368,7 +388,9 @@ class TestQueue():
                 result = test.retrieveResults(tmpPath)
                 logging.info('Collected results for %s'%test)
                 result_path = os.path.join(CONSTANTS.SFTP_COMMON, test.change_ref)
-                upload_logs(tmpPath, os.path.join(CONSTANTS.SFTP_BASE, result_path))
+                copy_logs(tmpPath, os.path.join(CONSTANTS.SFTP_BASE, result_path),
+                          CONSTANTS.SFTP_HOST, CONSTANTS.SFTP_USERNAME,
+                          paramiko.RSAKey.from_private_key_file(CONSTANTS.SFTP_KEY))
                 logging.info('Uploaded results for %s'%test)
                 test.update(self.db, result=result,
                             logs_url='https://%s/logs.tgz'%result_path,
