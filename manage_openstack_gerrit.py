@@ -86,7 +86,7 @@ class CONSTANTS:
     MYSQL_DB = 'openstack_ci'
     POLL = 30
     RECHECK_REGEXP = re.compile("^(citrix recheck|recheck bug|recheck nobug)")
-    VOTE = True
+    VOTE = False
     VOTE_NEGATIVE = False
     VOTE_SERVICE_ACCOUNT = False
     VOTE_MESSAGE = "%(result)s using XenAPI driver with XenServer 6.2.\n"+\
@@ -97,7 +97,7 @@ class CONSTANTS:
         'sandbox':{
             'name':'sandbox',
             'repo_path':"/tmp/opt/stack/gerrit_cache/sandbox",
-             'review_repo': "https://review.openstack.org/openstack-dev/sandbox",
+            'review_repo': "https://review.openstack.org/openstack-dev/sandbox",
             'files_to_check' : [''],
             'files_to_ignore' : []
             },
@@ -313,7 +313,7 @@ class Test():
                 CONSTANTS.NODE_KEY, CONSTANTS.NODE_USERNAME, node_ip, cmd))
         # TODO: For some reason invoking this immediately fails...
         time.sleep(5)
-        execute_command('ssh$-i$%s$%s@%s$nohup bash /home/jenkins/run_tests_env < /dev/null >nohup.out 2>&1 &'%(
+        execute_command('ssh$-i$%s$%s@%s$nohup bash /home/jenkins/run_tests_env < /dev/null > run_tests.log 2>&1 &'%(
                 CONSTANTS.NODE_KEY, CONSTANTS.NODE_USERNAME, node_ip), '$')
         self.update(state=RUNNING)
         
@@ -466,7 +466,7 @@ class TestQueue():
             existing.delete()
             self.nodepool.deleteNode(existing.node_id)
         test = Test(change_num, change_ref, project_name, commit_id)
-        test.insert()
+        test.insert(self.db)
 
     def triggerJobs(self):
         allTests = Test.getAllWhere(self.db, state=QUEUED)
@@ -494,8 +494,8 @@ class TestQueue():
                           paramiko.RSAKey.from_private_key_file(CONSTANTS.SFTP_KEY))
                 logging.info('Uploaded results for %s'%test)
                 test.update(result=result,
-                            logs_url='https://%s/'%result_path,
-                            report_url='https://%s/'%result_path)
+                            logs_url='http://%s/'%result_path,
+                            report_url='http://%s/'%result_path)
                 test.update(state=COLLECTED)
             finally:
                 shutil.rmtree(tmpPath)
@@ -537,7 +537,7 @@ def is_event_matching_criteria(event):
 
 def get_project_config(submitted_project):
     for project_name in CONSTANTS.PROJECT_CONFIG.keys():
-        if submitted_project.endswith(project_name):
+        if submitted_project.endswith('/%s'%project_name):
             project_config = CONSTANTS.PROJECT_CONFIG[project_name]
             return project_config
     return None
