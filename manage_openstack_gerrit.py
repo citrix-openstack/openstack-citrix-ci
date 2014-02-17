@@ -328,7 +328,8 @@ class Test():
             return True
         
         # Absolute maximum running time of 2 hours
-        if (time.time() - updated < CONSTANTS.MAX_RUNNING_TIME):
+        if (time.time() - updated > CONSTANTS.MAX_RUNNING_TIME):
+            logging.error('Timed out job %s (Running for %d seconds)'%(time.time()-updated))
             return False
         
         try:
@@ -342,7 +343,7 @@ class Test():
     def retrieveResults(self, dest_path):
         if not self.node_ip:
             logging.error('Attempting to retrieve results for %s but no node IP address'%self)
-            return "Aborted"
+            return "Aborted: No IP"
         try:
             code, stdout, stderr = execute_command('ssh -i %s %s@%s cat result.txt'%(
                     CONSTANTS.NODE_KEY, CONSTANTS.NODE_USERNAME, self.node_ip), silent=True,
@@ -355,7 +356,7 @@ class Test():
             
             if code != 0:
                 # This node is broken somehow... Mark it as aborted
-                return "Aborted"
+                return "Aborted: Unknown"
             
             return stdout.splitlines()[0]
         except Exception, e:
@@ -511,7 +512,7 @@ class TestQueue():
         allTests = Test.getAllWhere(self.db, state=COLLECTED)
         logging.info('%d tests ready to be posted...'%len(allTests))
         for test in allTests:
-            if test.result == 'Aborted':
+            if test.result.startsWith('Aborted'):
                 logging.info('Not voting on test %s (%s, %s, %s)'%(test, test.result, test.logs_url, test.report_url))
                 test.update(state=FINISHED)
                 continue
