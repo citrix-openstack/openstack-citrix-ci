@@ -348,7 +348,7 @@ class Test():
                     CONSTANTS.NODE_KEY, CONSTANTS.NODE_USERNAME, self.node_ip), silent=True,
                                                    return_streams=True)
             logging.info('Result: %s (Err: %s)'%(stdout, stderr))
-            copy_logs(['/home/jenkins/workspace/testing/logs/*'], dest_path,
+            copy_logs(['/home/jenkins/workspace/testing/logs/*', '/home/jenkins/run_test*'], dest_path,
                       self.node_ip, CONSTANTS.NODE_USERNAME,
                       paramiko.RSAKey.from_private_key_file(CONSTANTS.NODE_KEY),
                       upload=False)
@@ -486,13 +486,13 @@ class TestQueue():
             if test.isRunning():
                 continue
             
+            logging.info('Tests for %s are done! Collecting'%test)
             tmpPath = tempfile.mkdtemp(suffix=test.change_num)
             try:
                 result = test.retrieveResults(tmpPath)
                 if not result:
                     logging.info('No result obtained from %s'%test)
                     return
-                logging.info('Collected results for %s'%test)
                 result_path = os.path.join(CONSTANTS.SFTP_COMMON, test.change_ref)
                 copy_logs(['%s/*'%tmpPath], os.path.join(CONSTANTS.SFTP_BASE, result_path),
                           CONSTANTS.SFTP_HOST, CONSTANTS.SFTP_USERNAME,
@@ -509,7 +509,7 @@ class TestQueue():
 
     def postResults(self):
         allTests = Test.getAllWhere(self.db, state=COLLECTED)
-        logging.info('%d tests collected...'%len(allTests))
+        logging.info('%d tests ready to be posted...'%len(allTests))
         for test in allTests:
             if test.result == 'Aborted':
                 logging.info('Not voting on test %s (%s, %s, %s)'%(test, test.result, test.logs_url, test.report_url))
