@@ -57,16 +57,19 @@ from prettytable import PrettyTable
 QUEUED=1
 RUNNING=2
 COLLECTED=3
-POSTED=4
+FINISHED=4
 
 STATES = {
     QUEUED: 'Queued',
     RUNNING: 'Running',
     COLLECTED: 'Collected',
-    POSTED: 'Posted',
+    FINISHED: 'Finished',
     }
 
 class CONSTANTS:
+    GERRIT_HOST = '10.80.2.68'
+    GERRIT_USERNAME = 'citrix_xenserver_ci'
+    GERRIT_PORT = 29418
     SFTP_HOST = 'int-ca.downloads.xensource.com'
     SFTP_USERNAME = 'svcacct_openstack'
     SFTP_KEY = '/usr/workspace/scratch/openstack/infrastructure.hg/puppet/modules/jenkins/files/downloads-id_rsa'
@@ -76,6 +79,7 @@ class CONSTANTS:
     NODEPOOL_IMAGE = 'devstack-xenserver'
     NODE_USERNAME = 'jenkins'
     NODE_KEY = '/usr/workspace/scratch/openstack/infrastructure.hg/keys/nodepool'
+    MAX_RUNNING_TIME = 7200
     MYSQL_URL = '127.0.0.1'
     MYSQL_USERNAME = 'root'
     MYSQL_PASSWORD = ''
@@ -93,7 +97,7 @@ class CONSTANTS:
         'sandbox':{
             'name':'sandbox',
             'repo_path':"/tmp/opt/stack/gerrit_cache/sandbox",
-            'review_repo': "https://review.openstack.org/openstack-dev/sandbox",
+             'review_repo': "https://review.openstack.org/openstack-dev/sandbox",
             'files_to_check' : [''],
             'files_to_ignore' : []
             },
@@ -162,6 +166,7 @@ def getSSHObject(ip, username, key_filename):
 
 class Test():
     def __init__(self, change_num=None, change_ref=None, project_name=None, commit_id=None):
+        self.db = None
         self.project_name = project_name
         self.change_num = change_num
         self.change_ref = change_ref
@@ -229,7 +234,9 @@ class Test():
 
         retRecords = []
         for result in results:
-            retRecords.append(Test.fromRecord(result))
+            test = Test.fromRecord(result)
+            test.db = db
+            retRecords.append(test)
 
         return retRecords
     
@@ -242,17 +249,19 @@ class Test():
         if len(results) == 0:
             return None
         
-        return Test.fromRecord(results[0])
+        test = Test.fromRecord(results[0])
+        test.db = db
 
     def insert(self, db):
+        self.db = db
         SQL = 'INSERT INTO test(project_name, change_num, change_ref, state, created, commit_id) '+\
               'VALUES("%s","%s","%s","%s","%s","%s")'%(
             self.project_name, self.change_num, self.change_ref,
             self.state, self.created, self.commit_id)
-        db_execute(db, SQL)
+        db_execute(self.db, SQL)
         logging.info("Job for %s queued"%self.change_num)
 
-    def update(self, db, **kwargs):
+    def update(self, **kwargs):
         sql = 'UPDATE test SET updated=CURRENT_TIMESTAMP,'
         for key, value in kwargs.iteritems():
             sql += ' %s="%s",'%(key, value)
@@ -261,13 +270,13 @@ class Test():
         assert sql[-1:] == ","
         sql = sql[:-1] # Strip off the last ,
         sql += ' WHERE project_name="%s" AND change_num="%s"'%(self.project_name, self.change_num)
-        db_execute(db, sql)
+        db_execute(self.db, sql)
 
-    def delete(self, db):
+    def delete(self):
         SQL = 'DELETE FROM test WHERE project_name="%s" AND change_num="%s"'
-        db_execute(db, SQL%(self.project_name, self.change_num))
+        db_execute(self.db, SQL%(self.project_name, self.change_num))
 
-    def runTest(self, db, nodepool):
+    def runTest(self, nodepool):
         if self.node_id:
             node_id = self.node_id
             node_ip = self.node_ip
@@ -284,11 +293,8 @@ class Test():
             nodepool.deleteNode(node_id)
             return
 
-        self.update(db, node_id=node_id, node_ip=node_ip)
+        self.update(node_id=node_id, node_ip=node_ip)
 
-        cmd='/usr/bin/git clone https://github.com/citrix-openstack/xenapi-os-testing -b bob /home/jenkins/xenapi-os-testing'
-        execute_command('ssh -i %s %s@%s %s'%(
-                CONSTANTS.NODE_KEY, CONSTANTS.NODE_USERNAME, node_ip, cmd))
         environment  = 'ZUUL_URL=https://review.openstack.org'
         environment += ' ZUUL_REF=%s'%self.change_ref
         environment += ' PYTHONUNBUFFERED=true'
@@ -298,14 +304,18 @@ class Test():
         # Set gate timeout to 2 hours
         environment += ' DEVSTACK_GATE_TIMEOUT=240'
         environment += ' APPLIANCE_NAME=devstack'
-        cmd='echo "%s /home/jenkins/xenapi-os-testing/run_tests.sh" > run_tests_env'%environment
+        cmd='echo /usr/bin/git clone https://github.com/citrix-openstack/xenapi-os-testing '+\
+             '/home/jenkins/xenapi-os-testing > run_tests_env'
+        execute_command('ssh -i %s %s@%s %s'%(
+                CONSTANTS.NODE_KEY, CONSTANTS.NODE_USERNAME, node_ip, cmd))
+        cmd='echo "%s /home/jenkins/xenapi-os-testing/run_tests.sh" >> run_tests_env'%environment
         execute_command('ssh -i %s %s@%s %s'%(
                 CONSTANTS.NODE_KEY, CONSTANTS.NODE_USERNAME, node_ip, cmd))
         # TODO: For some reason invoking this immediately fails...
         time.sleep(5)
         execute_command('ssh$-i$%s$%s@%s$nohup bash /home/jenkins/run_tests_env < /dev/null >nohup.out 2>&1 &'%(
                 CONSTANTS.NODE_KEY, CONSTANTS.NODE_USERNAME, node_ip), '$')
-        self.update(db, state=RUNNING)
+        self.update(state=RUNNING)
         
     def isRunning(self):
         if not self.node_ip:
@@ -315,8 +325,12 @@ class Test():
         if (time.time() - updated < 300):
             # Allow 5 minutes for the gate PID to exist
             return True
+        
+        # Absolute maximum running time of 2 hours
+        if (time.time() - updated < CONSTANTS.MAX_RUNNING_TIME):
+            return False
+        
         try:
-            # TODO: Add timeout in here in case the job just dies in the VM
             success = execute_command('ssh -i %s %s@%s ps -p `cat /home/jenkins/workspace/testing/gate.pid`'%(
                     CONSTANTS.NODE_KEY, CONSTANTS.NODE_USERNAME, self.node_ip))
             return success
@@ -333,11 +347,15 @@ class Test():
                     CONSTANTS.NODE_KEY, CONSTANTS.NODE_USERNAME, self.node_ip), silent=True,
                                                    return_streams=True)
             logging.info('Result: %s (Err: %s)'%(stdout, stderr))
-
             copy_logs(['/home/jenkins/workspace/testing/logs'], dest_path,
                       self.node_ip, CONSTANTS.NODE_USERNAME,
                       paramiko.RSAKey.from_private_key_file(CONSTANTS.NODE_KEY),
                       upload=False)
+            
+            if code != 0:
+                # This node is broken somehow... Mark it as aborted
+                return "Aborted"
+            
             return stdout.splitlines()[0]
         except Exception, e:
             logging.exception(e)
@@ -445,16 +463,16 @@ class TestQueue():
         existing = Test.retrieve(self.db, project_name, change_num)
         if existing:
             logging.info('Test for previous patchset (%s) already queued - replacing'%(existing))
-            existing.delete(self.db)
+            existing.delete()
             self.nodepool.deleteNode(existing.node_id)
         test = Test(change_num, change_ref, project_name, commit_id)
-        test.insert(self.db)
+        test.insert()
 
     def triggerJobs(self):
         allTests = Test.getAllWhere(self.db, state=QUEUED)
         logging.info('%d tests queued...'%len(allTests))
         for test in allTests:
-            test.runTest(self.db, self.nodepool)
+            test.runTest(self.nodepool)
 
     def processResults(self):
         allTests = Test.getAllWhere(self.db, state=RUNNING)
@@ -475,28 +493,32 @@ class TestQueue():
                           CONSTANTS.SFTP_HOST, CONSTANTS.SFTP_USERNAME,
                           paramiko.RSAKey.from_private_key_file(CONSTANTS.SFTP_KEY))
                 logging.info('Uploaded results for %s'%test)
-                test.update(self.db, result=result,
+                test.update(result=result,
                             logs_url='https://%s/'%result_path,
                             report_url='https://%s/'%result_path)
-                test.update(self.db, state=COLLECTED)
+                test.update(state=COLLECTED)
             finally:
                 shutil.rmtree(tmpPath)
             self.nodepool.deleteNode(test.node_id)
-            test.update(self.db, node_id=0)
+            test.update(node_id=0)
 
     def postResults(self):
         allTests = Test.getAllWhere(self.db, state=COLLECTED)
         logging.info('%d tests collected...'%len(allTests))
         for test in allTests:
+            if test.result == 'Aborted':
+                logging.info('Not voting on test %s (%s, %s, %s)'%(test, test.result, test.logs_url, test.report_url))
+                test.update(state=FINISHED)
+                continue
+                
             if CONSTANTS.VOTE:
                 logging.info('Posted results for %s (%s, %s, %s)'%(test, test.result, test.logs_url, test.report_url))
                 message=CONSTANTS.VOTE_MESSAGE%{'result':test.result, 'report': test.report_url, 'log':test.logs_url}
                 vote_num = "+1" if test.result == 'Passed' else "-1"
                 vote(test.commit_id, vote_num, message)
-                test.update(self.db, state=POSTED)
+                test.update(state=FINISHED)
             else:
                 logging.info('Not voting on test %s (%s, %s, %s)'%(test, test.result, test.logs_url, test.report_url))
-            test.delete(self.db)
 
 
 def is_event_matching_criteria(event):
@@ -628,7 +650,7 @@ def vote(commitid, vote_num, message):
         logging.error("Did not vote -1 for commitid %s, vote %s" % (commitid, vote_num))
         vote_num = "0"
         message += "\n\nNegative vote suppressed"
-    vote_cmd = """ssh$-p$29418$review.openstack.org$gerrit$review"""
+    vote_cmd = "ssh$-p$%d$%s@%s$gerrit$review"%(CONSTANTS.GERRIT_PORT, CONSTANTS.GERRIT_USERNAME, CONSTANTS.GERRIT_HOST)
     vote_cmd = vote_cmd + "$-m$'" + message + "'"
     if CONSTANTS.VOTE_SERVICE_ACCOUNT:
         vote_cmd = vote_cmd + "$--verified=" + vote_num
@@ -657,16 +679,6 @@ def _main():
     usage = "usage: %prog [options]"
     
     parser = optparse.OptionParser(usage=usage)
-    # 198.101.231.251 is review.openstack.org. For some vague reason the dns entry from inside pygerrit is not resolved.
-    # It throws an error "ERROR Gerrit error: Failed to connect to server: [Errno 101] Network is unreachable"
-    parser.add_option('-g', '--gerrit-hostname', dest='hostname',
-                      default='198.101.231.251',
-                      help='gerrit server hostname (default: %default)')
-    parser.add_option('-p', '--port', dest='port',
-                      type='int', default=29418,
-                      help='port number (default: %default)')
-    parser.add_option('-u', '--username', dest='username',
-                      help='username', default='citrix_xenserver_ci')
     parser.add_option('-v', '--verbose', dest='verbose',
                       action='store_true',default=False,
                       help='enable verbose (debug) logging')
@@ -752,12 +764,12 @@ def _main():
     
     # Starting the loop for listening to Gerrit events
     try:
-        logging.info("Connecting to gerrit host " + options.hostname)
-        logging.info("Connecting to gerrit username " + options.username)
-        logging.info("Connecting to gerrit port " + str(options.port))
-        gerrit = GerritClient(host=options.hostname,
-                              username=options.username,
-                              port=options.port)
+        logging.info("Connecting to gerrit host %s"%CONSTANTS.GERRIT_HOST)
+        logging.info("Connecting to gerrit username %s"%CONSTANTS.GERRIT_USERNAME)
+        logging.info("Connecting to gerrit port %d"%CONSTANTS.GERRIT_PORT)
+        gerrit = GerritClient(host=CONSTANTS.GERRIT_HOST,
+                              username=CONSTANTS.GERRIT_USERNAME,
+                              port=CONSTANTS.GERRIT_PORT)
         logging.info("Connected to Gerrit version [%s]",
                      gerrit.gerrit_version())
         gerrit.start_event_stream()
