@@ -82,11 +82,11 @@ class CONSTANTS:
     MYSQL_DB = 'openstack_ci'
     POLL = 30
     RECHECK_REGEXP = re.compile("^(citrix recheck|recheck bug|recheck nobug)")
-    VOTE = False
+    VOTE = True
     VOTE_NEGATIVE = False
     VOTE_SERVICE_ACCOUNT = False
     VOTE_MESSAGE = "%(result)s using XenAPI driver with XenServer 6.2.\n"+\
-                   "* Results: %(report)s\n* Logs: %(log)s\n\n"+\
+                   "* Logs: %(log)s\n\n"+\
                    "XenServer CI contact: openstack@citrix.com."
     REVIEW_REPO_NAME='review'
     PROJECT_CONFIG={
@@ -476,8 +476,8 @@ class TestQueue():
                           paramiko.RSAKey.from_private_key_file(CONSTANTS.SFTP_KEY))
                 logging.info('Uploaded results for %s'%test)
                 test.update(self.db, result=result,
-                            logs_url='https://%s/logs.tgz'%result_path,
-                            report_url='https://%s/summary.gz'%result_path)
+                            logs_url='https://%s/'%result_path,
+                            report_url='https://%s/'%result_path)
                 test.update(self.db, state=COLLECTED)
             finally:
                 shutil.rmtree(tmpPath)
