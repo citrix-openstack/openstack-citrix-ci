@@ -33,11 +33,14 @@ from pygerrit.error import GerritError
 from pygerrit.events import ErrorEvent, PatchsetCreatedEvent, CommentAddedEvent
 from threading import Event
 import datetime
+import errno
 import logging
 import optparse
 import os, os.path
 import re
+import socket
 import shutil
+from stat import S_ISREG
 import sys
 import tempfile
 import time
@@ -49,9 +52,19 @@ from nodepool import nodedb, nodepool
 """ importing python git commands """
 from git import Repo
 
+from prettytable import PrettyTable
+
 QUEUED=1
 RUNNING=2
 COLLECTED=3
+POSTED=4
+
+STATES = {
+    QUEUED: 'Queued',
+    RUNNING: 'Running',
+    COLLECTED: 'Collected',
+    POSTED: 'Posted',
+    }
 
 class CONSTANTS:
     SFTP_HOST = 'int-ca.downloads.xensource.com'
@@ -60,14 +73,16 @@ class CONSTANTS:
     SFTP_BASE = '/var/www/html/'
     SFTP_COMMON = 'ca.downloads.xensource.com/OpenStack/xenserver-ci'
     NODEPOOL_CONFIG = '/etc/nodepool/nodepool.yaml'
-    NODEPOOL_IMAGE = 'nodepool-fake'
+    NODEPOOL_IMAGE = 'devstack-xenserver'
+    NODE_USERNAME = 'jenkins'
+    NODE_KEY = '/usr/workspace/scratch/openstack/infrastructure.hg/keys/nodepool'
     MYSQL_URL = '127.0.0.1'
     MYSQL_USERNAME = 'root'
     MYSQL_PASSWORD = ''
     MYSQL_DB = 'openstack_ci'
     POLL = 30
-    RECHECK_REGEXP = re.compile("^(recheck bug|recheck nobug)")
-    VOTE = True
+    RECHECK_REGEXP = re.compile("^(citrix recheck|recheck bug|recheck nobug)")
+    VOTE = False
     VOTE_NEGATIVE = False
     VOTE_SERVICE_ACCOUNT = False
     VOTE_MESSAGE = "%(result)s using XenAPI driver with XenServer 6.2.\n"+\
@@ -81,9 +96,7 @@ class CONSTANTS:
             'review_repo': "https://review.openstack.org/openstack-dev/sandbox",
             'files_to_check' : [''],
             'files_to_ignore' : []
-            }
-    }
-    __REAL_PROJECT_CONFIG={
+            },
         'nova':{
             'name':'nova',
             'repo_path':"/tmp/opt/stack/gerrit_cache/nova",
@@ -133,6 +146,20 @@ def db_query(db, sql):
     db.commit()
     return results
 
+def getSSHObject(ip, username, key_filename):
+    if ip is None:
+        raise Exception('Seriously?  The host must have an IP address')
+    ssh = paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.WarningPolicy())
+    key = paramiko.RSAKey.from_private_key_file(key_filename)
+    try:
+        ssh.connect(ip, username=username, pkey=key)
+        return ssh
+    except Exception, e:
+        logging.error('Unable to connect to %s using %s and key %s'%(ip, username, key_filename))
+        logging.exception(e)
+        return None
+
 class Test():
     def __init__(self, change_num=None, change_ref=None, project_name=None, commit_id=None):
         self.project_name = project_name
@@ -168,7 +195,6 @@ class Test():
 
     @classmethod
     def createTable(cls, db):
-        logging.info('Creating table...')
         sql = 'CREATE TABLE IF NOT EXISTS test'+\
               '('+\
               ' project_name VARCHAR(50),' +\
@@ -186,7 +212,6 @@ class Test():
               ' PRIMARY KEY (project_name, change_num)'+\
               ')'
         db_execute(db, sql)
-        logging.info('...Done')
 
     @classmethod
     def getAllWhere(cls, db, **kwargs):
@@ -228,7 +253,7 @@ class Test():
         logging.info("Job for %s queued"%self.change_num)
 
     def update(self, db, **kwargs):
-        sql = 'UPDATE test SET'
+        sql = 'UPDATE test SET updated=CURRENT_TIMESTAMP,'
         for key, value in kwargs.iteritems():
             sql += ' %s="%s",'%(key, value)
             setattr(self, key, value)
@@ -242,30 +267,80 @@ class Test():
         SQL = 'DELETE FROM test WHERE project_name="%s" AND change_num="%s"'
         db_execute(db, SQL%(self.project_name, self.change_num))
 
-    def runTest(self):
-        environment  = 'export ZUUL_URL=https://review.openstack.org;'
-        environment += ' export ZUUL_REF=%s;'%test.change_ref
-        environment += ' export PYTHONUNBUFFERED=true;'
-        environment += ' export DEVSTACK_GATE_TEMPEST=1;'
-        environment += ' export DEVSTACK_GATE_TEMPEST_FULL=1;'
-        #environment += ' export DEVSTACK_GATE_TEMPEST_FULL=0;'
-        environment += ' export DEVSTACK_GATE_VIRT_DRIVER=xenapi;'
-        # Set gate timeout to 2 hours
-        environment += ' export DEVSTACK_GATE_TIMEOUT=240;'
-        
-        # SSH to host + run environment + devstack-vm-gate-wrap.sh
-        logging.error('*** runTest NOT WRITTEN %s'%(self))
+    def runTest(self, db, nodepool):
+        if self.node_id:
+            node_id = self.node_id
+            node_ip = self.node_ip
+        else:
+            node_id, node_ip = nodepool.getNode()
 
+        if not node_id:
+            return
+        logging.info("Running test for %s on %s/%s"%(self, node_id, node_ip))
+
+        ssh = getSSHObject(node_ip, CONSTANTS.NODE_USERNAME, CONSTANTS.NODE_KEY)
+        if not ssh:
+            logging.error('Failed to get SSH object for node %s/%s.  Deleting node.'%(node_id, node_ip))
+            nodepool.deleteNode(node_id)
+            return
+
+        self.update(db, node_id=node_id, node_ip=node_ip)
+
+        cmd='/usr/bin/git clone https://github.com/citrix-openstack/xenapi-os-testing -b bob /home/jenkins/xenapi-os-testing'
+        execute_command('ssh -i %s %s@%s %s'%(
+                CONSTANTS.NODE_KEY, CONSTANTS.NODE_USERNAME, node_ip, cmd))
+        environment  = 'ZUUL_URL=https://review.openstack.org'
+        environment += ' ZUUL_REF=%s'%self.change_ref
+        environment += ' PYTHONUNBUFFERED=true'
+        environment += ' DEVSTACK_GATE_TEMPEST=1'
+        environment += ' DEVSTACK_GATE_TEMPEST_FULL=1'
+        environment += ' DEVSTACK_GATE_VIRT_DRIVER=xenapi'
+        # Set gate timeout to 2 hours
+        environment += ' DEVSTACK_GATE_TIMEOUT=240'
+        environment += ' APPLIANCE_NAME=devstack'
+        cmd='echo "%s /home/jenkins/xenapi-os-testing/run_tests.sh" > run_tests_env'%environment
+        execute_command('ssh -i %s %s@%s %s'%(
+                CONSTANTS.NODE_KEY, CONSTANTS.NODE_USERNAME, node_ip, cmd))
+        # TODO: For some reason invoking this immediately fails...
+        time.sleep(5)
+        execute_command('ssh$-i$%s$%s@%s$nohup bash /home/jenkins/run_tests_env < /dev/null >nohup.out 2>&1 &'%(
+                CONSTANTS.NODE_KEY, CONSTANTS.NODE_USERNAME, node_ip), '$')
+        self.update(db, state=RUNNING)
+        
     def isRunning(self):
-        logging.error('*** isRunning NOT WRITTEN %s'%(self))
-        return False
+        if not self.node_ip:
+            logging.error('Checking job %s is running but no node IP address'%self)
+            return False
+        updated = time.mktime(self.updated.timetuple())
+        if (time.time() - updated < 300):
+            # Allow 5 minutes for the gate PID to exist
+            return True
+        try:
+            # TODO: Add timeout in here in case the job just dies in the VM
+            success = execute_command('ssh -i %s %s@%s ps -p `cat /home/jenkins/workspace/testing/gate.pid`'%(
+                    CONSTANTS.NODE_KEY, CONSTANTS.NODE_USERNAME, self.node_ip))
+            return success
+        except Exception, e:
+            logging.exception(e)
+            return False
 
     def retrieveResults(self, dest_path):
-        copy_logs('/opt/stack/logs', dest_path,
-                  self.node_ip, CONSTANTS.NODE_USERNAME,
-                  paramiko.RSAKey.from_private_key_file(CONSTANTS.NODE_KEY),
-                  upload=False)
-        return 'Failed'
+        if not self.node_ip:
+            logging.error('Attempting to retrieve results for %s but no node IP address'%self)
+            return "Aborted"
+        try:
+            code, stdout, stderr = execute_command('ssh -i %s %s@%s cat result.txt'%(
+                    CONSTANTS.NODE_KEY, CONSTANTS.NODE_USERNAME, self.node_ip), silent=True,
+                                                   return_streams=True)
+            logging.info('Result: %s (Err: %s)'%(stdout, stderr))
+
+            copy_logs(['/home/jenkins/workspace/testing/logs'], dest_path,
+                      self.node_ip, CONSTANTS.NODE_USERNAME,
+                      paramiko.RSAKey.from_private_key_file(CONSTANTS.NODE_KEY),
+                      upload=False)
+            return stdout.splitlines()[0]
+        except Exception, e:
+            logging.exception(e)
 
     def __repr__(self):
         return "%(project_name)s/%(change_ref)s commit:%(commit_id)s state:%(state)s created:%(created)s" %self
@@ -294,11 +369,14 @@ class NodePool():
         return None, None
 
     def deleteNode(self, node_id):
+        if not node_id:
+            return
         self.pool.reconfigureManagers(self.pool.config)
         with self.pool.getDB().getSession() as session:
             node = session.getNode(node_id)
-            self.pool.deleteNode(session, node)
-
+            if node:
+                self.pool.deleteNode(session, node)
+                
 def mkdir_recursive(target, target_dir):
     try:
         target.chdir(target_dir)
@@ -306,9 +384,13 @@ def mkdir_recursive(target, target_dir):
         mkdir_recursive(target, os.path.dirname(target_dir))
         target.mkdir(target_dir)
 
-def copy_logs(source_dir, target_dir, host, username, key, upload=True):
-    transport = paramiko.Transport((CONSTANTS.SFTP_HOST, 22))
-    transport.connect(username=CONSTANTS.SFTP_USERNAME, pkey=key)
+def copy_logs(source_dirs, target_dir, host, username, key, upload=True):
+    transport = paramiko.Transport((host, 22))
+    try:
+        transport.connect(username=username, pkey=key)
+    except socket.error, e:
+        logging.exception(e)
+        return
     sftp = paramiko.SFTPClient.from_transport(transport)
 
     if upload:
@@ -323,12 +405,22 @@ def copy_logs(source_dir, target_dir, host, username, key, upload=True):
     mkdir_recursive(target, target_dir)
 
     existing_files = target.listdir(target_dir)
-    for filename in source.listdir(source_dir):
-        if filename in existing_files:
-            target.remove(os.path.join(target_dir, filename))
+    for source_dir in source_dirs:
+        try:
+            for filename in source.listdir(source_dir):
+                if filename in existing_files:
+                    target.remove(os.path.join(target_dir, filename))
         
-        sftp_method(os.path.join(source_dir, filename),
-                    os.path.join(target_dir, filename))
+                source_file = os.path.join(source_dir, filename)
+                if S_ISREG(source.stat(source_file).st_mode):
+                    sftp_method(os.path.join(source_dir, filename),
+                                os.path.join(target_dir, filename))
+        except IOError, e:
+            if e.errno != errno.ENOENT:
+                raise e
+            logging.exception(e)
+            # Ignore this exception to try again on the next directory
+    sftp.close()
 
 class TestQueue():
     def __init__(self, host, username, password, database_name):
@@ -341,10 +433,8 @@ class TestQueue():
     def initDB(self, database):
         cur = self.db.cursor()
         try:
-            logging.info('Using database...')
             cur.execute('USE %s'%database)
         except:
-            logging.info('Creating + using database...')
             cur.execute('CREATE DATABASE %s'%database)
             cur.execute('USE %s'%database)
             
@@ -354,9 +444,6 @@ class TestQueue():
         change_num = change_ref.split('/')[3]
         existing = Test.retrieve(self.db, project_name, change_num)
         if existing:
-            if existing.change_ref == change_ref:
-                logging.info('Test already queued as %s'%(existing))
-                return
             logging.info('Test for previous patchset (%s) already queued - replacing'%(existing))
             existing.delete(self.db)
             self.nodepool.deleteNode(existing.node_id)
@@ -365,20 +452,13 @@ class TestQueue():
 
     def triggerJobs(self):
         allTests = Test.getAllWhere(self.db, state=QUEUED)
-        count = len(allTests)
+        logging.info('%d tests queued...'%len(allTests))
         for test in allTests:
-            node_id, node_ip = self.nodepool.getNode()
-            if node_id is None:
-                logging.debug('Waiting for node for %d jobs...'%count)
-                return
-            count -= 1
-            test.update(self.db, node_id=node_id, node_ip=node_ip)
-            logging.info('Running job for %s'%test)
-            test.runTest()
-            test.update(self.db, state=RUNNING)
+            test.runTest(self.db, self.nodepool)
 
     def processResults(self):
         allTests = Test.getAllWhere(self.db, state=RUNNING)
+        logging.info('%d tests running...'%len(allTests))
         for test in allTests:
             if test.isRunning():
                 continue
@@ -386,9 +466,12 @@ class TestQueue():
             tmpPath = tempfile.mkdtemp(suffix=test.change_num)
             try:
                 result = test.retrieveResults(tmpPath)
+                if not result:
+                    logging.info('No result obtained from %s'%test)
+                    return
                 logging.info('Collected results for %s'%test)
                 result_path = os.path.join(CONSTANTS.SFTP_COMMON, test.change_ref)
-                copy_logs(tmpPath, os.path.join(CONSTANTS.SFTP_BASE, result_path),
+                copy_logs([tmpPath], os.path.join(CONSTANTS.SFTP_BASE, result_path),
                           CONSTANTS.SFTP_HOST, CONSTANTS.SFTP_USERNAME,
                           paramiko.RSAKey.from_private_key_file(CONSTANTS.SFTP_KEY))
                 logging.info('Uploaded results for %s'%test)
@@ -399,9 +482,11 @@ class TestQueue():
             finally:
                 shutil.rmtree(tmpPath)
             self.nodepool.deleteNode(test.node_id)
+            test.update(self.db, node_id=0)
 
     def postResults(self):
         allTests = Test.getAllWhere(self.db, state=COLLECTED)
+        logging.info('%d tests collected...'%len(allTests))
         for test in allTests:
             if CONSTANTS.VOTE_COMMENT:
                 logging.info('Posted results for %s (%s, %s, %s)'%(test, test.result, test.logs_url, test.report_url))
@@ -451,17 +536,21 @@ def are_files_matching_criteria_event(event):
                 return True
     return False
     
-def execute_command(command, delimiter=' '):
+def execute_command(command, delimiter=' ', silent=False, return_streams=False):
     command_as_array = command.split(delimiter)
-    logging.debug("Executing command: " + str(command)) 
+    if not silent:
+        logging.debug("Executing command: " + str(command)) 
     p = subprocess.Popen(command_as_array,stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     output, errors = p.communicate()
     if p.returncode != 0:
-        logging.error("Error: Could not execute command " + str(command)  + ". Failed with errors " + str(errors))
-        return False
-    logging.debug("Output command: " + str(output))
+        if not silent:
+            logging.error("Error: Could not execute command " + str(command)  + ". Failed with errors " + str(errors))
+    if not silent:
+        logging.debug("Output: " + str(output))
     
-    return True
+    if return_streams:
+        return p.returncode, output, errors
+    return p.returncode == 0
 
 def is_file_matching_criteria(submitted_file, files_to_check, files_to_ignore):
     while True:
@@ -482,6 +571,9 @@ def are_files_matching_criteria(local_repo_path, review_repo_url, files_to_check
     """  Issue checkout using command line"""
 
     """ Check the files and see if they are matching criteria"""
+
+    if len(files_to_ignore) == 0 and files_to_check == ['']:
+        return True
 
     if not os.path.exists(local_repo_path):
         os.makedirs(local_repo_path)
@@ -585,6 +677,12 @@ def _main():
     parser.add_option('-j', '--project', dest='project',
                       action="callback", callback=check_for_change_ref, type="string",
                       help="project of the change-ref provided")
+    parser.add_option('--list', dest='list',
+                      action='store_true', default=False,
+                      help="List the tests recorded by the system")
+    parser.add_option('--show', dest='show',
+                      action='store_true', default=False,
+                      help="Show details for a specific test recorded by the system")
 
     (options, _args) = parser.parse_args()
     if options.change_ref and not options.project:
@@ -595,6 +693,24 @@ def _main():
                         level=level)
 
     queue = TestQueue(CONSTANTS.MYSQL_URL, CONSTANTS.MYSQL_USERNAME, CONSTANTS.MYSQL_PASSWORD, CONSTANTS.MYSQL_DB)
+
+
+    if options.show:
+        t = PrettyTable()
+        t.add_column('Key', ['Project name', 'Change num', 'Change ref',
+                             'state', 'created', 'Commit id', 'Node id',
+                             'Node ip', 'Result', 'Logs', 'Report', 'Updated',
+                             'Gerrit URL'])
+        test = Test.getAllWhere(queue.db, change_ref=options.change_ref, project_name=options.project)[0]
+        url = 'https://review.openstack.org/%s'%test.change_num
+        t.add_column('Value', [test.project_name, test.change_num, test.change_ref,
+                               STATES[test.state], test.created, test.commit_id,
+                               test.node_id, test.node_ip, test.result, test.logs_url,
+                               test.report_url, test.updated, url])
+        t.align = 'l'
+        print t
+        return
+
 
     if options.change_ref:
         # Execute tests and vote
@@ -611,6 +727,25 @@ def _main():
             queue.addTest(options.change_ref, options.project, commitid)
         else:
             logging.error("Changeref specified does not match file match criteria")
+        return
+
+    if options.list:
+        t = PrettyTable(["Project", "Change", "State", "IP", "Result", "Age (hours)"])
+        t.align = 'l'
+        now = time.time()
+        allTests = Test.getAllWhere(queue.db)
+        for test in allTests:
+            if test.node_id:
+                node_ip = test.node_ip
+            else:
+                node_ip = '(%s)'%test.node_ip
+            updated = time.mktime(test.updated.timetuple())
+            #if test.result:
+            #    age = ''
+            #else:
+            age = '%.02f' % ((now - updated) / 3600)
+            t.add_row([test.project_name, test.change_ref, STATES[test.state], node_ip, test.result, age])
+        print t
         return
     
     # Starting the loop for listening to Gerrit events
@@ -643,9 +778,13 @@ def _main():
                     logging.error(event.error)
                     errors.set()
                 event = gerrit.get_event(block=False)
-            queue.triggerJobs()
-            queue.processResults()
-            queue.postResults()
+            try:
+                queue.triggerJobs()
+                queue.processResults()
+                # queue.postResults()
+            except Exception, e:
+                logging.exception(e)
+                # Ignore exception and try again; keeps the app polling
             time.sleep(CONSTANTS.POLL)
     except KeyboardInterrupt:
         logging.info("Terminated by user")
