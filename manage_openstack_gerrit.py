@@ -488,11 +488,12 @@ class TestQueue():
         allTests = Test.getAllWhere(self.db, state=COLLECTED)
         logging.info('%d tests collected...'%len(allTests))
         for test in allTests:
-            if CONSTANTS.VOTE_COMMENT:
+            if CONSTANTS.VOTE:
                 logging.info('Posted results for %s (%s, %s, %s)'%(test, test.result, test.logs_url, test.report_url))
                 message=CONSTANTS.VOTE_MESSAGE%{'result':test.result, 'report': test.report_url, 'log':test.logs_url}
                 vote_num = "+1" if test.result == 'Passed' else "-1"
                 vote(test.commit_id, vote_num, message)
+                test.update(self.db, state=POSTED)
             else:
                 logging.info('Not voting on test %s (%s, %s, %s)'%(test, test.result, test.logs_url, test.report_url))
             test.delete(self.db)
@@ -572,8 +573,9 @@ def are_files_matching_criteria(local_repo_path, review_repo_url, files_to_check
 
     """ Check the files and see if they are matching criteria"""
 
-    if len(files_to_ignore) == 0 and files_to_check == ['']:
-        return True
+    # Would love to short-circuit here, but can't because we want the commit ID
+    #if len(files_to_ignore) == 0 and files_to_check == ['']:
+    #    return True, commit_id
 
     if not os.path.exists(local_repo_path):
         os.makedirs(local_repo_path)
@@ -781,7 +783,7 @@ def _main():
             try:
                 queue.triggerJobs()
                 queue.processResults()
-                # queue.postResults()
+                queue.postResults()
             except Exception, e:
                 logging.exception(e)
                 # Ignore exception and try again; keeps the app polling
