@@ -34,6 +34,7 @@ from pygerrit.events import ErrorEvent, PatchsetCreatedEvent, CommentAddedEvent
 from threading import Event
 import datetime
 import errno
+import fnmatch
 import logging
 import optparse
 import os, os.path
@@ -347,7 +348,7 @@ class Test():
                     CONSTANTS.NODE_KEY, CONSTANTS.NODE_USERNAME, self.node_ip), silent=True,
                                                    return_streams=True)
             logging.info('Result: %s (Err: %s)'%(stdout, stderr))
-            copy_logs(['/home/jenkins/workspace/testing/logs'], dest_path,
+            copy_logs(['/home/jenkins/workspace/testing/logs/*'], dest_path,
                       self.node_ip, CONSTANTS.NODE_USERNAME,
                       paramiko.RSAKey.from_private_key_file(CONSTANTS.NODE_KEY),
                       upload=False)
@@ -402,7 +403,7 @@ def mkdir_recursive(target, target_dir):
         mkdir_recursive(target, os.path.dirname(target_dir))
         target.mkdir(target_dir)
 
-def copy_logs(source_dirs, target_dir, host, username, key, upload=True):
+def copy_logs(source_masks, target_dir, host, username, key, upload=True):
     transport = paramiko.Transport((host, 22))
     try:
         transport.connect(username=username, pkey=key)
@@ -423,12 +424,16 @@ def copy_logs(source_dirs, target_dir, host, username, key, upload=True):
     mkdir_recursive(target, target_dir)
 
     existing_files = target.listdir(target_dir)
-    for source_dir in source_dirs:
+    for filename in existing_files:
+        target.remove(os.path.join(target_dir, filename))
+
+    for source_mask in source_masks:
         try:
+            source_dir = os.path.dirname(source_mask)
+            source_glob = os.path.basename(source_mask)
             for filename in source.listdir(source_dir):
-                if filename in existing_files:
-                    target.remove(os.path.join(target_dir, filename))
-        
+                if not fnmatch.fnmatch(filename, source_glob):
+                    continue
                 source_file = os.path.join(source_dir, filename)
                 if S_ISREG(source.stat(source_file).st_mode):
                     sftp_method(os.path.join(source_dir, filename),
@@ -489,7 +494,7 @@ class TestQueue():
                     return
                 logging.info('Collected results for %s'%test)
                 result_path = os.path.join(CONSTANTS.SFTP_COMMON, test.change_ref)
-                copy_logs([tmpPath], os.path.join(CONSTANTS.SFTP_BASE, result_path),
+                copy_logs(['%s/*'%tmpPath], os.path.join(CONSTANTS.SFTP_BASE, result_path),
                           CONSTANTS.SFTP_HOST, CONSTANTS.SFTP_USERNAME,
                           paramiko.RSAKey.from_private_key_file(CONSTANTS.SFTP_KEY))
                 logging.info('Uploaded results for %s'%test)
