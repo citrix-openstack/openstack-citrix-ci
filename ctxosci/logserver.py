@@ -4,7 +4,7 @@ class Logserver(object):
         self.username = env.get('logserver_username', 'LOGSERVER_USERNAME')
         self.host = env.get('logserver_host', 'LOGSERVER_HOST')
 
-    def run(self, args):
+    def run_with_agent(self, args):
         return (
             'ssh -A -o UserKnownHostsFile=/dev/null'
             ' -o StrictHostKeyChecking=no {0}@{1}').format(

@@ -1,3 +1,6 @@
+from ctxosci import remote
+
+
 class Node(object):
 
     def __init__(self, env=None):
@@ -11,7 +14,7 @@ class Node(object):
 
     def command_for_this_node(self):
         return (
-            'ssh -A -o UserKnownHostsFile=/dev/null'
+            'ssh -o UserKnownHostsFile=/dev/null'
             ' -o StrictHostKeyChecking=no {0}@{1}').format(
             self.username, self.ip).split()
 
@@ -22,4 +25,8 @@ class Node(object):
             ' -o StrictHostKeyChecking=no root@192.168.33.2').split()
 
     def run_on_dom0(self, args):
-        return self.command_for_this_node() + self.commands_for_dom0() + args
+        return (
+            self.command_for_this_node()
+            + self.commands_for_dom0()
+            + remote.escaped(args)
+        )
