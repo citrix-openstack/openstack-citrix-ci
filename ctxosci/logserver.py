@@ -10,4 +10,6 @@ class Logserver(object):
             ' -o StrictHostKeyChecking=no {0}@{1}').format(
             self.username, self.host).split() + args
 
-
+    @classmethod
+    def parameters(self):
+        return ['logserver_username', 'logserver_host']

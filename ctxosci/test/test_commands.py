@@ -1,6 +1,8 @@
 import unittest
 
 from ctxosci import commands
+from ctxosci import logserver
+from ctxosci import node
 
 
 COMMON_SSH_OPTS='-o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no'
@@ -30,3 +32,11 @@ class TestGetDom0Logs(unittest.TestCase):
                "/var/log/messages* /var/log/xensource* /var/log/SM*"],
             cmd.executor.executed_commands[0])
 
+    def test_a_node_parameter_included(self):
+        self.assertIn('node_username', commands.GetDom0Logs.parameters())
+
+    def test_a_logserver_parameter_included(self):
+        self.assertIn('logserver_host', commands.GetDom0Logs.parameters())
+
+    def test_executor_parameter_included(self):
+        self.assertIn('executor', commands.GetDom0Logs.parameters())

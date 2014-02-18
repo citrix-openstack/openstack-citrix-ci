@@ -5,6 +5,10 @@ class Node(object):
         self.username = env.get('node_username', 'NODE_USERNAME')
         self.ip = env.get('node_host', 'NODE_HOST')
 
+    @classmethod
+    def parameters(cls):
+        return ['node_username', 'node_host']
+
     def command_for_this_node(self):
         return (
             'ssh -A -o UserKnownHostsFile=/dev/null'
