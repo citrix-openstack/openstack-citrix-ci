@@ -28,8 +28,8 @@ class TestGetDom0Logs(unittest.TestCase):
             SSH_TO_LOGSERVER
             + SSH_TO_NODE
             + SSH_TO_DOMZERO_FROM_NODE
-            + ["tar --ignore-failed-read -czf - SOURCES"]
-            + ['| tar -xzf - -C TARGET_DIR'],
+            + "tar --ignore-failed-read -czf - SOURCES".split()
+            + '| tar -xzf - -C TARGET_DIR'.split(),
             cmd.executor.executed_commands[0])
 
     def test_stars_escaped(self):
@@ -42,8 +42,8 @@ class TestGetDom0Logs(unittest.TestCase):
             SSH_TO_LOGSERVER
             + SSH_TO_NODE
             + SSH_TO_DOMZERO_FROM_NODE
-            + [r"tar --ignore-failed-read -czf - \\*"]
-            + ['| tar -xzf - -C TARGET_DIR'],
+            + r"tar --ignore-failed-read -czf - \\*".split()
+            + '| tar -xzf - -C TARGET_DIR'.split(),
             cmd.executor.executed_commands[0])
 
     def test_executor_factory(self):

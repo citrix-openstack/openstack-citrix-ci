@@ -26,9 +26,10 @@ class GetDom0Logs(object):
         self.executor.run(
             self.logserver.run_with_agent(
                 remote.escaped(
-                    self.node.run_on_dom0([
-                    "tar --ignore-failed-read -czf - {0}".format(self.sources)
-                    ])
-                ) + ['| tar -xzf - -C {0}'.format(self.target_dir)]
+                    self.node.run_on_dom0(
+                    "tar --ignore-failed-read -czf - {0}".format(
+                        self.sources).split()
+                    )
+                ) + '| tar -xzf - -C {0}'.format(self.target_dir).split()
             )
         )
