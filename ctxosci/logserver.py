@@ -1,3 +1,6 @@
+from ctxosci import common_ssh_options
+
+
 class Logserver(object):
     def __init__(self, env):
         env = env or dict()
@@ -6,9 +9,11 @@ class Logserver(object):
 
     def run_with_agent(self, args):
         return (
-            'ssh -A -o UserKnownHostsFile=/dev/null'
-            ' -o StrictHostKeyChecking=no {0}@{1}').format(
-            self.username, self.host).split() + args
+            'ssh -A'.split()
+            + common_ssh_options.COMMON_SSH_OPTS
+            + ['{0}@{1}'.format(self.username, self.host)]
+            + args
+        )
 
     @classmethod
     def parameters(self):

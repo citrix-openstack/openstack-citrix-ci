@@ -1,0 +1,1 @@
+COMMON_SSH_OPTS='-o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no'.split()

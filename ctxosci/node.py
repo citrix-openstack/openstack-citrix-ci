@@ -1,4 +1,5 @@
 from ctxosci import remote
+from ctxosci import common_ssh_options
 
 
 class Node(object):
@@ -14,15 +15,17 @@ class Node(object):
 
     def command_for_this_node(self):
         return (
-            'ssh -o UserKnownHostsFile=/dev/null'
-            ' -o StrictHostKeyChecking=no {0}@{1}').format(
-            self.username, self.ip).split()
+            ['ssh']
+            + common_ssh_options.COMMON_SSH_OPTS
+            + ['{0}@{1}'.format(self.username, self.ip)]
+        )
 
     def commands_for_dom0(self):
         return (
-            'sudo -u domzero ssh'
-            ' -o UserKnownHostsFile=/dev/null'
-            ' -o StrictHostKeyChecking=no root@192.168.33.2').split()
+            'sudo -u domzero ssh'.split()
+            + common_ssh_options.COMMON_SSH_OPTS
+            + 'root@192.168.33.2'.split()
+        )
 
     def run_on_dom0(self, args):
         return (
