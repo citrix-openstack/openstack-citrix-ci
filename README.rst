@@ -296,3 +296,22 @@ Use the ssh key to execute a Verified vote. An example is given below
 .. _Here: https://github.com/vijayvenkat/openstack-netscaler-ci/blob/master/localrc
 
 
+Log Collection
+~~~~~~~~~~~~~~
+
+Check connectivity:
+
+.. code-block:: bash
+
+    osci-check-connection exec jenkins NODE LOGUSER LOGSERVER
+
+
+To copy dom0 files from NODE to LOGUSER@LOGSERVER:/root/something
+
+.. code-block:: bash
+
+    osci-cp-dom0-to-logserver exec jenkins NODE \
+    '/var/log/messages* /var/log/xensource* /opt/nodepool-scripts/*.log' \
+    LOGUSER LOGSERVER /root/something
+
+Use '''print''' instead of exec to see, what's about to be executed.
