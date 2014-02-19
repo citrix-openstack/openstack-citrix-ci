@@ -1,8 +1,9 @@
+from ctxosci import server
 from ctxosci import remote
 from ctxosci import common_ssh_options
 
 
-class Node(object):
+class Node(server.Server):
 
     def __init__(self, env=None):
         env = env or dict()

@@ -1,7 +1,8 @@
+from ctxosci import server
 from ctxosci import common_ssh_options
 
 
-class Logserver(object):
+class Logserver(server.Server):
     def __init__(self, env):
         env = env or dict()
         self.username = env.get('logserver_username', 'LOGSERVER_USERNAME')
