@@ -19,14 +19,6 @@ class Server(object):
             + ['{0}@{1}'.format(self.username, self.host)]
         )
 
-    def run_with_agent(self, args):
-        return (
-            'ssh -A'.split()
-            + common_ssh_options.COMMON_SSH_OPTS
-            + ['{0}@{1}'.format(self.username, self.host)]
-            + args
-        )
-
     def run(self, args):
         return self.command_for_this_node() + args
 
