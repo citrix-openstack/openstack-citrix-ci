@@ -1,12 +1,12 @@
 from ctxosci import node
-from ctxosci import remote
+from ctxosci import executor
 from ctxosci import logserver
 
 
 class GetDom0Logs(object):
     def __init__(self, env=None):
         env = env or dict()
-        self.executor = remote.create_executor(env.get('executor'))
+        self.executor = executor.create_executor(env.get('executor'))
         self.node = node.Node(env)
         self.logserver = logserver.Logserver(env)
         self.target_dir = env.get('target_dir', 'TARGET_DIR')
@@ -37,7 +37,7 @@ class GetDom0Logs(object):
 class CheckConnection(object):
     def __init__(self, env=None):
         env = env or dict()
-        self.executor = remote.create_executor(env.get('executor'))
+        self.executor = executor.create_executor(env.get('executor'))
         self.node = node.Node(env)
         self.logserver = logserver.Logserver(env)
 
