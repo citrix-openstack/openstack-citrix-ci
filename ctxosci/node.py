@@ -30,3 +30,6 @@ class Node(object):
             + self.commands_for_dom0()
             + remote.escaped(args)
         )
+
+    def run(self, args):
+        return self.command_for_this_node() + args

@@ -16,3 +16,11 @@ def get_dom0_logs():
     env = parser.parse_args()
     command = command_class(vars(env))
     command()
+
+
+def check_connection():
+    command_class = commands.CheckConnection
+    parser = get_parser_for(command_class)
+    env = parser.parse_args()
+    command = command_class(vars(env))
+    command()

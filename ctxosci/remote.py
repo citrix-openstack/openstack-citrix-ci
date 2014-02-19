@@ -22,7 +22,7 @@ class FakeExecutor(object):
 
 class RealExecutor(object):
     def run(self, args):
-        subprocess.call(args)
+        return subprocess.call(args)
 
 
 def escaped(args):

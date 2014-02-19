@@ -8,7 +8,8 @@ setup(
     packages=['ctxosci'],
     entry_points={
         'console_scripts': [
-            'coci-get-dom0-logs = ctxosci.scripts:get_dom0_logs'
+            'coci-get-dom0-logs = ctxosci.scripts:get_dom0_logs',
+            'coci-check-connection = ctxosci.scripts:check_connection'
         ]
     }
 )
