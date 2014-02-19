@@ -7,7 +7,7 @@ class Node(object):
     def __init__(self, env=None):
         env = env or dict()
         self.username = env.get('node_username', 'NODE_USERNAME')
-        self.ip = env.get('node_host', 'NODE_HOST')
+        self.host = env.get('node_host', 'NODE_HOST')
 
     @classmethod
     def parameters(cls):
@@ -17,7 +17,7 @@ class Node(object):
         return (
             ['ssh']
             + common_ssh_options.COMMON_SSH_OPTS
-            + ['{0}@{1}'.format(self.username, self.ip)]
+            + ['{0}@{1}'.format(self.username, self.host)]
         )
 
     def commands_for_dom0(self):
@@ -38,7 +38,7 @@ class Node(object):
         return (
             'ssh -A'.split()
             + common_ssh_options.COMMON_SSH_OPTS
-            + ['{0}@{1}'.format(self.username, self.ip)]
+            + ['{0}@{1}'.format(self.username, self.host)]
             + args
         )
 
