@@ -1,30 +1,5 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-from optparse import OptionValueError
-
-# The MIT License
-#
-# Copyright 2012 Sony Mobile Communications. All rights reserved.
-#
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is
-# furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in
-# all copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-# THE SOFTWARE.
-
-""" Example of using the Gerrit client class. """
 
 import subprocess
 
@@ -45,6 +20,8 @@ from stat import S_ISREG
 import sys
 import tempfile
 import time
+import threading
+import Queue
 
 import paramiko
 import MySQLdb
@@ -88,7 +65,7 @@ class CONSTANTS:
     POLL = 30
     RECHECK_REGEXP = re.compile("^(citrix recheck|recheck bug|recheck nobug)")
     VOTE = True
-    VOTE_PASSED_ONLY = True
+    VOTE_PASSED_ONLY = False
     VOTE_NEGATIVE = False
     VOTE_SERVICE_ACCOUNT = False
     VOTE_MESSAGE = "%(result)s using XenAPI driver with XenServer 6.2.\n"+\
@@ -167,7 +144,35 @@ def getSSHObject(ip, username, key_filename):
         logging.exception(e)
         return None
 
+class DeleteNodeThread(threading.Thread):
+    log = logging.getLogger('citrix.DeleteNodeThread')
+
+    deleteNodeQueue = Queue.Queue()
+    
+    def __init__(self, pool):
+        threading.Thread.__init__(self, name='DeleteNodeThread')
+        self.pool = pool
+        self.daemon = True
+
+    def run(self):
+        while True:
+            try:
+                self.pool.reconfigureManagers(self.pool.config)
+                with self.pool.getDB().getSession() as session:
+                    while True:
+                        # Get a new DB Session every 30 seconds (exception will be caught below)
+                        node_id = self.deleteNodeQueue.get(block=True, timeout=30)
+                        node = session.getNode(node_id)
+                        if node:
+                            self.pool.deleteNode(session, node)
+            except Queue.Empty, e:
+                pass
+            except:
+                self.log.exception(e)
+
 class Test():
+    log = logging.getLogger('citrix.test')
+
     def __init__(self, change_num=None, change_ref=None, project_name=None, commit_id=None):
         self.db = None
         self.project_name = project_name
@@ -221,7 +226,6 @@ class Test():
               ' updated TIMESTAMP default CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,' +\
               ' test_started TIMESTAMP,' +\
               ' test_stopped TIMESTAMP,' +\
-              ' posted TIMESTAMP,' +\
               ' PRIMARY KEY (project_name, change_num)'+\
               ')'
         db_execute(db, sql)
@@ -269,7 +273,7 @@ class Test():
             self.project_name, self.change_num, self.change_ref,
             self.state, self.created, self.commit_id)
         db_execute(self.db, SQL)
-        logging.info("Job for %s queued"%self.change_num)
+        self.log.info("Job for %s queued"%self.change_num)
 
     def update(self, **kwargs):
         sql = 'UPDATE test SET updated=CURRENT_TIMESTAMP,'
@@ -281,8 +285,6 @@ class Test():
             setattr(self, key, value)
         if kwargs.get('state', None) == RUNNING:
             sql += ' test_started=CURRENT_TIMESTAMP,'
-        if kwargs.get('state', None) == FINISHED:
-            sql += ' posted=CURRENT_TIMESTAMP,'
 
         assert sql[-1:] == ","
         sql = sql[:-1] # Strip off the last ,
@@ -302,11 +304,11 @@ class Test():
 
         if not node_id:
             return
-        logging.info("Running test for %s on %s/%s"%(self, node_id, node_ip))
+        self.log.info("Running test for %s on %s/%s"%(self, node_id, node_ip))
 
         ssh = getSSHObject(node_ip, CONSTANTS.NODE_USERNAME, CONSTANTS.NODE_KEY)
         if not ssh:
-            logging.error('Failed to get SSH object for node %s/%s.  Deleting node.'%(node_id, node_ip))
+            self.log.error('Failed to get SSH object for node %s/%s.  Deleting node.'%(node_id, node_ip))
             nodepool.deleteNode(node_id)
             self.update(node_id=0)
             return
@@ -337,7 +339,7 @@ class Test():
         
     def isRunning(self):
         if not self.node_ip:
-            logging.error('Checking job %s is running but no node IP address'%self)
+            self.log.error('Checking job %s is running but no node IP address'%self)
             return False
         updated = time.mktime(self.updated.timetuple())
         if (time.time() - updated < 300):
@@ -347,7 +349,7 @@ class Test():
         # Absolute maximum running time of 2 hours.  Note that if by happy chance the tests have finished
         # this result will be over-written by retrieveResults
         if (time.time() - updated > CONSTANTS.MAX_RUNNING_TIME):
-            logging.error('Timed out job %s (Running for %d seconds)'%(self, time.time()-updated))
+            self.log.error('Timed out job %s (Running for %d seconds)'%(self, time.time()-updated))
             self.update(result='Aborted: Timed out')
             return False
         
@@ -357,18 +359,18 @@ class Test():
             return success
         except Exception, e:
             self.update(result='Aborted: Exception checking for pid')
-            logging.exception(e)
+            self.log.exception(e)
             return False
 
     def retrieveResults(self, dest_path):
         if not self.node_ip:
-            logging.error('Attempting to retrieve results for %s but no node IP address'%self)
+            self.log.error('Attempting to retrieve results for %s but no node IP address'%self)
             return "Aborted: No IP"
         try:
             code, stdout, stderr = execute_command('ssh -i %s %s@%s cat result.txt'%(
                     CONSTANTS.NODE_KEY, CONSTANTS.NODE_USERNAME, self.node_ip), silent=True,
                                                    return_streams=True)
-            logging.info('Result: %s (Err: %s)'%(stdout, stderr))
+            self.log.info('Result: %s (Err: %s)'%(stdout, stderr))
             copy_logs(['/home/jenkins/workspace/testing/logs/*', '/home/jenkins/run_test*'], dest_path,
                       self.node_ip, CONSTANTS.NODE_USERNAME,
                       paramiko.RSAKey.from_private_key_file(CONSTANTS.NODE_KEY),
@@ -382,7 +384,7 @@ class Test():
             
             return stdout.splitlines()[0]
         except Exception, e:
-            logging.exception(e)
+            self.log.exception(e)
 
     def __repr__(self):
         return "%(project_name)s/%(change_num)s state:%(state)s" %self
@@ -391,12 +393,15 @@ class Test():
         return getattr(self, item)
 
 class NodePool():
+    log = logging.getLogger('citrix.nodepool')
     def __init__(self, image):
         self.pool = nodepool.NodePool(CONSTANTS.NODEPOOL_CONFIG)
         config = self.pool.loadConfig()
         self.pool.reconfigureDatabase(config)
         self.pool.setConfig(config)
         self.image = image
+        self.deleteNodeThread = DeleteNodeThread(self.pool)
+        self.deleteNodeThread.start()
 
     def getNode(self):
         with self.pool.getDB().getSession() as session:
@@ -413,11 +418,8 @@ class NodePool():
     def deleteNode(self, node_id):
         if not node_id:
             return
-        self.pool.reconfigureManagers(self.pool.config)
-        with self.pool.getDB().getSession() as session:
-            node = session.getNode(node_id)
-            if node:
-                self.pool.deleteNode(session, node)
+        self.log.info('Adding node %s to the list to delete'%node_id)
+        DeleteNodeThread.deleteNodeQueue.put(node_id)
                 
 def mkdir_recursive(target, target_dir):
     try:
@@ -699,7 +701,7 @@ def queue_event(queue, event):
 
 def check_for_change_ref(option, opt_str, value, parser):
     if not parser.values.change_ref:
-        raise OptionValueError("can't use %s, Please provide --change_ref/-c before %s" % (opt_str, opt_str))
+        raise optparse.OptionValueError("can't use %s, Please provide --change_ref/-c before %s" % (opt_str, opt_str))
     setattr(parser.values, option.dest, value)
 
 def _main():
@@ -721,6 +723,9 @@ def _main():
     parser.add_option('--list', dest='list',
                       action='store_true', default=False,
                       help="List the tests recorded by the system")
+    parser.add_option('--states', dest='states',
+                      action='store', default=None,
+                      help="States to list recorded by the system")
     parser.add_option('--failures', dest='failures',
                       action='store_true', default=False,
                       help="List the failures recorded by the system")
@@ -780,7 +785,18 @@ def _main():
         allTests = Test.getAllWhere(queue.db)
         state_dict = {}
         result_dict = {}
+        if options.states and len(options.states) > 0:
+            states = options.states.split(',')
+        else:
+            states = None
         for test in allTests:
+            state_count = state_dict.get(STATES[test.state], 0)+1
+            state_dict[STATES[test.state]] = state_count
+            result_count = result_dict.get(test.result, 0)+1
+            result_dict[test.result] = result_count
+
+            if states and STATES[test.state] not in states:
+                continue
             if test.node_id:
                 node_ip = test.node_ip
             else:
@@ -788,16 +804,12 @@ def _main():
             updated = time.mktime(test.updated.timetuple())
             age = '%.02f' % ((now - updated) / 3600)
             duration = '-'
-            
+
             if test.test_started and test.test_stopped:
                 started = time.mktime(test.test_started.timetuple())
                 stopped = time.mktime(test.test_stopped.timetuple())
                 duration = "%.02f"%((stopped - started)/3600)
             t.add_row([test.project_name, test.change_ref, STATES[test.state], node_ip, test.result, age, duration])
-            state_count = state_dict.get(STATES[test.state], 0)+1
-            state_dict[STATES[test.state]] = state_count
-            result_count = result_dict.get(test.result, 0)+1
-            result_dict[test.result] = result_count
         print state_dict
         print result_dict
         print t
@@ -807,8 +819,10 @@ def _main():
         t = PrettyTable(["Project", "Change", "State", "Result", "Duration", "URL"])
         t.align = 'l'
         now = time.time()
-        allTests = Test.getAllWhere(queue.db, result='Failed')
+        allTests = Test.getAllWhere(queue.db)
         for test in allTests:
+            if not test.result or (test.result != 'Failed' and test.result.find('Aborted') != 0):
+                continue
             if test.node_id:
                 node_ip = test.node_ip
             else:
