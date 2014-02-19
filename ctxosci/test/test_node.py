@@ -11,6 +11,6 @@ class TestNode(unittest.TestCase):
         ))
 
         self.assertEquals(
-            "ssh -o UserKnownHostsFile=/dev/null"
+            "ssh -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null"
             " -o StrictHostKeyChecking=no USER@IP".split(),
             n.command_for_this_node())

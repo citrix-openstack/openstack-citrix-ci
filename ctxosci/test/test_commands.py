@@ -5,7 +5,9 @@ from ctxosci import logserver
 from ctxosci import node
 
 
-COMMON_SSH_OPTS='-o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no'
+COMMON_SSH_OPTS=(
+    '-q -o BatchMode=yes -o UserKnownHostsFile=/dev/null'
+    ' -o StrictHostKeyChecking=no')
 SSH_TO_LOGSERVER=(
     'ssh -A {SSH_OPTIONS} LOGSERVER_USERNAME@LOGSERVER_HOST'.format(
         SSH_OPTIONS=COMMON_SSH_OPTS).split())
