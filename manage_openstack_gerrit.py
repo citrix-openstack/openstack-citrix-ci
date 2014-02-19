@@ -260,6 +260,8 @@ class Test():
         test = Test.fromRecord(results[0])
         test.db = db
 
+        return test
+
     def insert(self, db):
         self.db = db
         SQL = 'INSERT INTO test(project_name, change_num, change_ref, state, created, commit_id) '+\
