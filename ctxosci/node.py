@@ -1,5 +1,5 @@
 from ctxosci import server
-from ctxosci import remote
+from ctxosci import executor
 from ctxosci import common_ssh_options
 
 
@@ -19,6 +19,6 @@ class Node(server.Server):
         return (
             self.command_for_this_node()
             + self.commands_for_dom0()
-            + remote.escaped(args)
+            + executor.escaped(args)
         )
 

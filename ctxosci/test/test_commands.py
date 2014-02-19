@@ -3,7 +3,7 @@ import unittest
 from ctxosci import commands
 from ctxosci import logserver
 from ctxosci import node
-from ctxosci import remote
+from ctxosci import executor
 
 
 COMMON_SSH_OPTS=(
@@ -26,7 +26,7 @@ class TestGetDom0Logs(unittest.TestCase):
         cmd = commands.GetDom0Logs()
 
         cmd()
-        print remote.fake_pipe(
+        print executor.fake_pipe(
             SSH_TO_NODE
             + SSH_TO_DOMZERO_FROM_NODE
             + "tar --ignore-failed-read -czf - SOURCES".split(),
@@ -36,7 +36,7 @@ class TestGetDom0Logs(unittest.TestCase):
 
         self.maxDiff = 4096
         self.assertEquals(
-            remote.fake_pipe(
+            executor.fake_pipe(
                 SSH_TO_NODE
                 + SSH_TO_DOMZERO_FROM_NODE
                 + "tar --ignore-failed-read -czf - SOURCES".split(),
@@ -53,7 +53,7 @@ class TestGetDom0Logs(unittest.TestCase):
 
         self.maxDiff = 1024
         self.assertEquals(
-            remote.fake_pipe(
+            executor.fake_pipe(
                 SSH_TO_NODE
                 + SSH_TO_DOMZERO_FROM_NODE
                 + r"tar --ignore-failed-read -czf - \*".split(),
