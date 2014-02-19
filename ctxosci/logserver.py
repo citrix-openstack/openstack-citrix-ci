@@ -15,6 +15,16 @@ class Logserver(object):
             + args
         )
 
+    def command_for_this_node(self):
+        return (
+            ['ssh']
+            + common_ssh_options.COMMON_SSH_OPTS
+            + ['{0}@{1}'.format(self.username, self.host)]
+        )
+
+    def run(self, args):
+        return self.command_for_this_node() + args
+
     @classmethod
     def parameters(self):
         return ['logserver_username', 'logserver_host']

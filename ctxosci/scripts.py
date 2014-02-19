@@ -1,4 +1,6 @@
+import sys
 import argparse
+import logging
 from ctxosci import commands
 
 
@@ -10,7 +12,12 @@ def get_parser_for(command):
     return parser
 
 
+def setup_logging():
+    logging.basicConfig(level=logging.DEBUG)
+
+
 def get_dom0_logs():
+    setup_logging()
     command_class = commands.GetDom0Logs
     parser = get_parser_for(command_class)
     env = parser.parse_args()
@@ -19,8 +26,9 @@ def get_dom0_logs():
 
 
 def check_connection():
+    setup_logging()
     command_class = commands.CheckConnection
     parser = get_parser_for(command_class)
     env = parser.parse_args()
     command = command_class(vars(env))
-    command()
+    sys.exit(command())

@@ -3,13 +3,14 @@ import unittest
 from ctxosci import commands
 from ctxosci import logserver
 from ctxosci import node
+from ctxosci import remote
 
 
 COMMON_SSH_OPTS=(
     '-q -o BatchMode=yes -o UserKnownHostsFile=/dev/null'
     ' -o StrictHostKeyChecking=no')
 SSH_TO_LOGSERVER=(
-    'ssh -A {SSH_OPTIONS} LOGSERVER_USERNAME@LOGSERVER_HOST'.format(
+    'ssh {SSH_OPTIONS} LOGSERVER_USERNAME@LOGSERVER_HOST'.format(
         SSH_OPTIONS=COMMON_SSH_OPTS).split())
 SSH_TO_NODE=(
     'ssh {SSH_OPTIONS} NODE_USERNAME@NODE_HOST'.format(
@@ -25,13 +26,23 @@ class TestGetDom0Logs(unittest.TestCase):
         cmd = commands.GetDom0Logs()
 
         cmd()
-
-        self.assertEquals(
-            SSH_TO_LOGSERVER
-            + SSH_TO_NODE
+        print remote.fake_pipe(
+            SSH_TO_NODE
             + SSH_TO_DOMZERO_FROM_NODE
-            + "tar --ignore-failed-read -czf - SOURCES".split()
-            + '| tar -xzf - -C TARGET_DIR'.split(),
+            + "tar --ignore-failed-read -czf - SOURCES".split(),
+            SSH_TO_LOGSERVER
+            +'tar -xzf - -C TARGET_DIR'.split()
+        )
+
+        self.maxDiff = 4096
+        self.assertEquals(
+            remote.fake_pipe(
+                SSH_TO_NODE
+                + SSH_TO_DOMZERO_FROM_NODE
+                + "tar --ignore-failed-read -czf - SOURCES".split(),
+                SSH_TO_LOGSERVER
+                +'tar -xzf - -C TARGET_DIR'.split()
+            ),
             cmd.executor.executed_commands[0])
 
     def test_stars_escaped(self):
@@ -40,12 +51,15 @@ class TestGetDom0Logs(unittest.TestCase):
 
         cmd()
 
+        self.maxDiff = 1024
         self.assertEquals(
-            SSH_TO_LOGSERVER
-            + SSH_TO_NODE
-            + SSH_TO_DOMZERO_FROM_NODE
-            + r"tar --ignore-failed-read -czf - \\*".split()
-            + '| tar -xzf - -C TARGET_DIR'.split(),
+            remote.fake_pipe(
+                SSH_TO_NODE
+                + SSH_TO_DOMZERO_FROM_NODE
+                + r"tar --ignore-failed-read -czf - \*".split(),
+                SSH_TO_LOGSERVER
+                +'tar -xzf - -C TARGET_DIR'.split()
+            ),
             cmd.executor.executed_commands[0])
 
     def test_executor_factory(self):

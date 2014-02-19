@@ -23,14 +23,13 @@ class GetDom0Logs(object):
         )
 
     def __call__(self):
-        self.executor.run(
-            self.logserver.run_with_agent(
-                remote.escaped(
-                    self.node.run_on_dom0(
-                    "tar --ignore-failed-read -czf - {0}".format(
-                        self.sources).split()
-                    )
-                ) + '| tar -xzf - -C {0}'.format(self.target_dir).split()
+        self.executor.pipe_run(
+            self.node.run_on_dom0(
+                "tar --ignore-failed-read -czf - {0}".format(
+                    self.sources).split()
+            ),
+            self.logserver.run(
+                'tar -xzf - -C {0}'.format(self.target_dir).split()
             )
         )
 
@@ -53,23 +52,17 @@ class CheckConnection(object):
     def __call__(self):
         checks = [
             (
-                'Connection to log server',
-                self.logserver.run_with_agent(['true'])
+                'Connection to Node',
+                self.node.run(['true'])
             ),
             (
-                'Connection from log server to Node',
-                self.logserver.run_with_agent(
-                    remote.escaped(
-                        self.node.run(['true'])
-                    ))
+                'Connection from Node to dom0',
+                self.node.run_on_dom0(['true'])
             ),
             (
-                'Connection from log server to Node to dom0',
-                self.logserver.run_with_agent(
-                    remote.escaped(
-                        self.node.run_on_dom0(['true'])
-                    ))
-            )
+                'Connection to Logserver',
+                self.logserver.run(['true'])
+            ),
         ]
 
         for message, args in checks:
@@ -78,5 +71,7 @@ class CheckConnection(object):
                 print "OK"
             else:
                 print "FAIL, aborting"
-                return
+                return 1
+
+        return 0
 
