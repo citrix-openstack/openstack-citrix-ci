@@ -14,6 +14,9 @@ class PrintExecutor(object):
     def run(self, args):
         print ' '.join(args)
 
+    def pipe_run(self, args1, args2):
+        print ' '.join(args1 + ['|'] + args2)
+
 
 class FakeExecutor(object):
     def __init__(self):

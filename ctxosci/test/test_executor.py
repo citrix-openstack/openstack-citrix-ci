@@ -1,11 +1,11 @@
 import unittest
 
-from ctxosci import remote
+from ctxosci import executor
 
 
 class TestExecutorFactory(unittest.TestCase):
     def test_creating_print(self):
-        executor = remote.create_executor('print')
-        self.assertEquals('PrintExecutor', executor.__class__.__name__)
+        exc = executor.create_executor('print')
+        self.assertEquals('PrintExecutor', exc.__class__.__name__)
 
 
