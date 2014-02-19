@@ -80,14 +80,15 @@ class CONSTANTS:
     NODEPOOL_IMAGE = 'devstack-xenserver'
     NODE_USERNAME = 'jenkins'
     NODE_KEY = '/usr/workspace/scratch/openstack/infrastructure.hg/keys/nodepool'
-    MAX_RUNNING_TIME = 7200
+    MAX_RUNNING_TIME = 3600*3
     MYSQL_URL = '127.0.0.1'
     MYSQL_USERNAME = 'root'
     MYSQL_PASSWORD = ''
     MYSQL_DB = 'openstack_ci'
     POLL = 30
     RECHECK_REGEXP = re.compile("^(citrix recheck|recheck bug|recheck nobug)")
-    VOTE = False
+    VOTE = True
+    VOTE_PASSED_ONLY = True
     VOTE_NEGATIVE = False
     VOTE_SERVICE_ACCOUNT = False
     VOTE_MESSAGE = "%(result)s using XenAPI driver with XenServer 6.2.\n"+\
@@ -142,6 +143,7 @@ def db_execute(db, sql):
         cur.execute(sql)
         db.commit()
     except:
+        logging.error('Error running SQL %s'%sql)
         db.rollback()
 
 def db_query(db, sql):
@@ -196,6 +198,8 @@ class Test():
         retVal.logs_url=record[i]; i+=1
         retVal.report_url=record[i]; i+=1
         retVal.updated=record[i]; i+=1
+        retVal.test_started=record[i]; i+=1
+        retVal.test_stopped=record[i]; i+=1
 
         return retVal
 
@@ -211,10 +215,13 @@ class Test():
               ' commit_id VARCHAR(50),'+\
               ' node_id INT,'+\
               ' node_ip VARCHAR(50),'+\
-              ' result VARCHAR(10),'+\
+              ' result VARCHAR(50),'+\
               ' logs_url VARCHAR(200),'+\
               ' report_url VARCHAR(200),'+\
               ' updated TIMESTAMP default CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,' +\
+              ' test_started TIMESTAMP,' +\
+              ' test_stopped TIMESTAMP,' +\
+              ' posted TIMESTAMP,' +\
               ' PRIMARY KEY (project_name, change_num)'+\
               ')'
         db_execute(db, sql)
@@ -264,9 +271,16 @@ class Test():
 
     def update(self, **kwargs):
         sql = 'UPDATE test SET updated=CURRENT_TIMESTAMP,'
+        if self.state == RUNNING and kwargs.get('state', RUNNING) != RUNNING:
+            sql += ' test_stopped=CURRENT_TIMESTAMP,'
+            
         for key, value in kwargs.iteritems():
             sql += ' %s="%s",'%(key, value)
             setattr(self, key, value)
+        if kwargs.get('state', None) == RUNNING:
+            sql += ' test_started=CURRENT_TIMESTAMP,'
+        if kwargs.get('state', None) == FINISHED:
+            sql += ' posted=CURRENT_TIMESTAMP,'
 
         assert sql[-1:] == ","
         sql = sql[:-1] # Strip off the last ,
@@ -292,9 +306,10 @@ class Test():
         if not ssh:
             logging.error('Failed to get SSH object for node %s/%s.  Deleting node.'%(node_id, node_ip))
             nodepool.deleteNode(node_id)
+            self.update(node_id=0)
             return
 
-        self.update(node_id=node_id, node_ip=node_ip)
+        self.update(node_id=node_id, node_ip=node_ip, result='')
 
         environment  = 'ZUUL_URL=https://review.openstack.org'
         environment += ' ZUUL_REF=%s'%self.change_ref
@@ -327,9 +342,11 @@ class Test():
             # Allow 5 minutes for the gate PID to exist
             return True
         
-        # Absolute maximum running time of 2 hours
+        # Absolute maximum running time of 2 hours.  Note that if by happy chance the tests have finished
+        # this result will be over-written by retrieveResults
         if (time.time() - updated > CONSTANTS.MAX_RUNNING_TIME):
-            logging.error('Timed out job %s (Running for %d seconds)'%(time.time()-updated))
+            logging.error('Timed out job %s (Running for %d seconds)'%(self, time.time()-updated))
+            self.update(result='Aborted: Timed out')
             return False
         
         try:
@@ -337,6 +354,7 @@ class Test():
                     CONSTANTS.NODE_KEY, CONSTANTS.NODE_USERNAME, self.node_ip))
             return success
         except Exception, e:
+            self.update(result='Aborted: Exception checking for pid')
             logging.exception(e)
             return False
 
@@ -356,6 +374,8 @@ class Test():
             
             if code != 0:
                 # This node is broken somehow... Mark it as aborted
+                if self.result and self.result.startswith('Aborted: '):
+                    return self.result
                 return "Aborted: Unknown"
             
             return stdout.splitlines()[0]
@@ -363,7 +383,7 @@ class Test():
             logging.exception(e)
 
     def __repr__(self):
-        return "%(project_name)s/%(change_ref)s commit:%(commit_id)s state:%(state)s created:%(created)s" %self
+        return "%(project_name)s/%(change_num)s state:%(state)s" %self
 
     def __getitem__(self, item):
         return getattr(self, item)
@@ -512,19 +532,18 @@ class TestQueue():
         allTests = Test.getAllWhere(self.db, state=COLLECTED)
         logging.info('%d tests ready to be posted...'%len(allTests))
         for test in allTests:
-            if test.result.startsWith('Aborted'):
-                logging.info('Not voting on test %s (%s, %s, %s)'%(test, test.result, test.logs_url, test.report_url))
+            if test.result.find('Aborted') == 0:
+                logging.info('Not voting on aborted test %s (%s)'%(test, test.result))
                 test.update(state=FINISHED)
                 continue
                 
             if CONSTANTS.VOTE:
-                logging.info('Posted results for %s (%s, %s, %s)'%(test, test.result, test.logs_url, test.report_url))
                 message=CONSTANTS.VOTE_MESSAGE%{'result':test.result, 'report': test.report_url, 'log':test.logs_url}
                 vote_num = "+1" if test.result == 'Passed' else "-1"
-                vote(test.commit_id, vote_num, message)
-                test.update(state=FINISHED)
-            else:
-                logging.info('Not voting on test %s (%s, %s, %s)'%(test, test.result, test.logs_url, test.report_url))
+                if ((vote_num == '+1') or (not CONSTANTS.VOTE_PASSED_ONLY)):
+                    logging.info('Posting results for %s (%s)'%(test, test.result))
+                    vote(test.commit_id, vote_num, message)
+                    test.update(state=FINISHED)
 
 
 def is_event_matching_criteria(event):
@@ -700,6 +719,9 @@ def _main():
     parser.add_option('--list', dest='list',
                       action='store_true', default=False,
                       help="List the tests recorded by the system")
+    parser.add_option('--failures', dest='failures',
+                      action='store_true', default=False,
+                      help="List the failures recorded by the system")
     parser.add_option('--show', dest='show',
                       action='store_true', default=False,
                       help="Show details for a specific test recorded by the system")
@@ -750,21 +772,54 @@ def _main():
         return
 
     if options.list:
-        t = PrettyTable(["Project", "Change", "State", "IP", "Result", "Age (hours)"])
+        t = PrettyTable(["Project", "Change", "State", "IP", "Result", "Age (hours)", "Duration"])
         t.align = 'l'
         now = time.time()
         allTests = Test.getAllWhere(queue.db)
+        state_dict = {}
+        result_dict = {}
         for test in allTests:
             if test.node_id:
                 node_ip = test.node_ip
             else:
                 node_ip = '(%s)'%test.node_ip
             updated = time.mktime(test.updated.timetuple())
-            #if test.result:
-            #    age = ''
-            #else:
             age = '%.02f' % ((now - updated) / 3600)
-            t.add_row([test.project_name, test.change_ref, STATES[test.state], node_ip, test.result, age])
+            duration = '-'
+            
+            if test.test_started and test.test_stopped:
+                started = time.mktime(test.test_started.timetuple())
+                stopped = time.mktime(test.test_stopped.timetuple())
+                duration = "%.02f"%((stopped - started)/3600)
+            t.add_row([test.project_name, test.change_ref, STATES[test.state], node_ip, test.result, age, duration])
+            state_count = state_dict.get(STATES[test.state], 0)+1
+            state_dict[STATES[test.state]] = state_count
+            result_count = result_dict.get(test.result, 0)+1
+            result_dict[test.result] = result_count
+        print state_dict
+        print result_dict
+        print t
+        return
+    
+    if options.failures:
+        t = PrettyTable(["Project", "Change", "State", "Result", "Duration", "URL"])
+        t.align = 'l'
+        now = time.time()
+        allTests = Test.getAllWhere(queue.db, result='Failed')
+        for test in allTests:
+            if test.node_id:
+                node_ip = test.node_ip
+            else:
+                node_ip = '(%s)'%test.node_ip
+            updated = time.mktime(test.updated.timetuple())
+            age = '%.02f' % ((now - updated) / 3600)
+            duration = '-'
+            
+            if test.test_started and test.test_stopped:
+                started = time.mktime(test.test_started.timetuple())
+                stopped = time.mktime(test.test_stopped.timetuple())
+                duration = "%.02f"%((stopped - started)/3600)
+            t.add_row([test.project_name, test.change_num, STATES[test.state], test.result, duration, test.logs_url])
         print t
         return
     
@@ -799,9 +854,9 @@ def _main():
                     errors.set()
                 event = gerrit.get_event(block=False)
             try:
-                queue.triggerJobs()
-                queue.processResults()
                 queue.postResults()
+                queue.processResults()
+                queue.triggerJobs()
             except Exception, e:
                 logging.exception(e)
                 # Ignore exception and try again; keeps the app polling
