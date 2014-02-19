@@ -16,7 +16,7 @@ def setup_logging():
     logging.basicConfig(level=logging.DEBUG)
 
 
-def get_dom0_logs():
+def cp_dom0_logserver():
     setup_logging()
     command_class = commands.GetDom0Logs
     parser = get_parser_for(command_class)
