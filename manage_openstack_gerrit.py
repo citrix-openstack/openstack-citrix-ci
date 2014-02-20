@@ -36,12 +36,14 @@ QUEUED=1
 RUNNING=2
 COLLECTED=3
 FINISHED=4
+COLLECTING=5
 
 STATES = {
     QUEUED: 'Queued',
     RUNNING: 'Running',
     COLLECTED: 'Collected',
     FINISHED: 'Finished',
+    COLLECTING: 'Collecting',
     }
 
 class CONSTANTS:
@@ -167,7 +169,30 @@ class DeleteNodeThread(threading.Thread):
                             self.pool.deleteNode(session, node)
             except Queue.Empty, e:
                 pass
-            except:
+            except Exception, e:
+                self.log.exception(e)
+
+class CollectResultsThread(threading.Thread):
+    log = logging.getLogger('citrix.CollectResultsThread')
+
+    collectTests = Queue.Queue()
+    
+    def __init__(self, testQueue):
+        threading.Thread.__init__(self, name='DeleteNodeThread')
+        self.daemon = True
+        self.testQueue = testQueue
+        collectingTests = Test.getAllWhere(testQueue.db, state=COLLECTING)
+        for test in collectingTests:
+            self.collectTests.put(test)
+
+    def run(self):
+        while True:
+            try:
+                test = self.collectTests.get(block=True, timeout=30)
+                self.testQueue.uploadResults(test)
+            except Queue.Empty, e:
+                pass
+            except Exception, e:
                 self.log.exception(e)
 
 class Test():
@@ -461,22 +486,26 @@ def copy_logs(source_masks, target_dir, host, username, key, upload=True):
                     continue
                 source_file = os.path.join(source_dir, filename)
                 if S_ISREG(source.stat(source_file).st_mode):
+                    logger.info('Copying %s to %s'%(source_file, target_dir))
                     sftp_method(os.path.join(source_dir, filename),
                                 os.path.join(target_dir, filename))
         except IOError, e:
             if e.errno != errno.ENOENT:
                 raise e
-            logging.exception(e)
+            logger.exception(e)
             # Ignore this exception to try again on the next directory
     sftp.close()
 
 class TestQueue():
+    log = logging.getLogger('citrix.TestQueue')
     def __init__(self, host, username, password, database_name):
         self.db = MySQLdb.connect(host=host,
                                   user=username,
                                   passwd=password)
         self.initDB(database_name)
         self.nodepool = NodePool(CONSTANTS.NODEPOOL_IMAGE)
+        self.collectResultsThread = CollectResultsThread(self)
+        self.collectResultsThread.start()
         
     def initDB(self, database):
         cur = self.db.cursor()
@@ -492,7 +521,7 @@ class TestQueue():
         change_num = change_ref.split('/')[3]
         existing = Test.retrieve(self.db, project_name, change_num)
         if existing:
-            logging.info('Test for previous patchset (%s) already queued - replacing'%(existing))
+            self.log.info('Test for previous patchset (%s) already queued - replacing'%(existing))
             existing.delete()
             self.nodepool.deleteNode(existing.node_id)
         test = Test(change_num, change_ref, project_name, commit_id)
@@ -500,41 +529,53 @@ class TestQueue():
 
     def triggerJobs(self):
         allTests = Test.getAllWhere(self.db, state=QUEUED)
-        logging.info('%d tests queued...'%len(allTests))
+        self.log.info('%d tests queued...'%len(allTests))
         for test in allTests:
             test.runTest(self.nodepool)
 
+    def uploadResults(self, test):
+        tmpPath = tempfile.mkdtemp(suffix=test.change_num)
+        try:
+            result = test.retrieveResults(tmpPath)
+            if not result:
+                logging.info('No result obtained from %s'%test)
+                return
+            
+            code, fail_stdout, stderr = execute_command('grep$... FAIL$%s/run_tests.log'%tmpPath,
+                                                        delimiter='$',
+                                                        return_streams=True)
+            self.log.info('Result: %s (Err: %s)'%(fail_stdout, stderr))
+                
+            self.log.info('Copying logs for %s'%(test))
+            result_path = os.path.join(CONSTANTS.SFTP_COMMON, test.change_ref)
+            copy_logs(['%s/*'%tmpPath], os.path.join(CONSTANTS.SFTP_BASE, result_path),
+                      CONSTANTS.SFTP_HOST, CONSTANTS.SFTP_USERNAME,
+                      paramiko.RSAKey.from_private_key_file(CONSTANTS.SFTP_KEY))
+            self.log.info('Uploaded results for %s'%test)
+            test.update(result=result,
+                        logs_url='http://%s/'%result_path,
+                        report_url='http://%s/'%result_path,
+                        failed=fail_stdout)
+            test.update(state=COLLECTED)
+        finally:
+            shutil.rmtree(tmpPath)
+        self.nodepool.deleteNode(test.node_id)
+        test.update(node_id=0)
+
     def processResults(self):
         allTests = Test.getAllWhere(self.db, state=RUNNING)
-        logging.info('%d tests running...'%len(allTests))
+        self.log.info('%d tests running...'%len(allTests))
         for test in allTests:
             if test.isRunning():
                 continue
             
-            logging.info('Tests for %s are done! Collecting'%test)
-            tmpPath = tempfile.mkdtemp(suffix=test.change_num)
-            try:
-                result = test.retrieveResults(tmpPath)
-                if not result:
-                    logging.info('No result obtained from %s'%test)
-                    return
-                result_path = os.path.join(CONSTANTS.SFTP_COMMON, test.change_ref)
-                copy_logs(['%s/*'%tmpPath], os.path.join(CONSTANTS.SFTP_BASE, result_path),
-                          CONSTANTS.SFTP_HOST, CONSTANTS.SFTP_USERNAME,
-                          paramiko.RSAKey.from_private_key_file(CONSTANTS.SFTP_KEY))
-                logging.info('Uploaded results for %s'%test)
-                test.update(result=result,
-                            logs_url='http://%s/'%result_path,
-                            report_url='http://%s/'%result_path)
-                test.update(state=COLLECTED)
-            finally:
-                shutil.rmtree(tmpPath)
-            self.nodepool.deleteNode(test.node_id)
-            test.update(node_id=0)
+            self.log.info('Tests for %s are done! Collecting'%test)
+            test.update(state=COLLECTING)
+            CollectResultsThread.collectTests.put(test)
 
     def postResults(self):
         allTests = Test.getAllWhere(self.db, state=COLLECTED)
-        logging.info('%d tests ready to be posted...'%len(allTests))
+        self.log.info('%d tests ready to be posted...'%len(allTests))
         for test in allTests:
             if test.result.find('Aborted') == 0:
                 logging.info('Not voting on aborted test %s (%s)'%(test, test.result))
