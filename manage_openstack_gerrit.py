@@ -251,6 +251,7 @@ class Test():
               ' updated TIMESTAMP default CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,' +\
               ' test_started TIMESTAMP,' +\
               ' test_stopped TIMESTAMP,' +\
+              ' failed TEXT,' +\
               ' PRIMARY KEY (project_name, change_num)'+\
               ')'
         db_execute(db, sql)
@@ -266,7 +267,7 @@ class Test():
 
             assert sql[-4:] == " AND"
             sql = sql[:-4] # Strip off the last AND
-        sql += ' ORDER BY created ASC'
+        sql += ' ORDER BY updated ASC'
         results = db_query(db, sql)
 
         retRecords = []
@@ -309,7 +310,7 @@ class Test():
             sql += ' %s="%s",'%(key, value)
             setattr(self, key, value)
         if kwargs.get('state', None) == RUNNING:
-            sql += ' test_started=CURRENT_TIMESTAMP,'
+            sql += ' test_started=CURRENT_TIMESTAMP,test_stopped=NULL,'
 
         assert sql[-1:] == ","
         sql = sql[:-1] # Strip off the last ,
@@ -384,7 +385,9 @@ class Test():
         
         try:
             success = execute_command('ssh -i %s %s@%s ps -p `cat /home/jenkins/workspace/testing/gate.pid`'%(
-                    CONSTANTS.NODE_KEY, CONSTANTS.NODE_USERNAME, self.node_ip))
+                    CONSTANTS.NODE_KEY, CONSTANTS.NODE_USERNAME, self.node_ip), silent=True)
+            self.log.info('Gate-is-running on job %s (%s) returned: %s'%(
+                          self, self.node_ip, success))
             return success
         except Exception, e:
             self.update(result='Aborted: Exception checking for pid')
@@ -400,6 +403,7 @@ class Test():
                     CONSTANTS.NODE_KEY, CONSTANTS.NODE_USERNAME, self.node_ip), silent=True,
                                                    return_streams=True)
             self.log.info('Result: %s (Err: %s)'%(stdout, stderr))
+            self.log.info('Downloading logs for %s'%self)
             copy_logs(['/home/jenkins/workspace/testing/logs/*', '/home/jenkins/run_test*'], dest_path,
                       self.node_ip, CONSTANTS.NODE_USERNAME,
                       paramiko.RSAKey.from_private_key_file(CONSTANTS.NODE_KEY),
@@ -458,11 +462,12 @@ def mkdir_recursive(target, target_dir):
         target.mkdir(target_dir)
 
 def copy_logs(source_masks, target_dir, host, username, key, upload=True):
+    logger = logging.getLogger('citrix.copy_logs')
     transport = paramiko.Transport((host, 22))
     try:
         transport.connect(username=username, pkey=key)
     except socket.error, e:
-        logging.exception(e)
+        logger.exception(e)
         return
     sftp = paramiko.SFTPClient.from_transport(transport)
 
@@ -636,14 +641,14 @@ def are_files_matching_criteria_event(event):
 def execute_command(command, delimiter=' ', silent=False, return_streams=False):
     command_as_array = command.split(delimiter)
     if not silent:
-        logging.debug("Executing command: " + str(command)) 
+        logging.debug("Executing command: %s"%command_as_array) 
     p = subprocess.Popen(command_as_array,stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     output, errors = p.communicate()
     if p.returncode != 0:
         if not silent:
-            logging.error("Error: Could not execute command " + str(command)  + ". Failed with errors " + str(errors))
+            logging.error("Error: Could not execute command. Failed with code %d and errors: %s"%(p.returncode, errors))
     if not silent:
-        logging.debug("Output: " + str(output))
+        logging.debug("Output:%s"%output)
     
     if return_streams:
         return p.returncode, output, errors
@@ -770,10 +775,13 @@ def _main():
                       help="List the tests recorded by the system")
     parser.add_option('--states', dest='states',
                       action='store', default=None,
-                      help="States to list recorded by the system")
+                      help="(Use with --list): States to list recorded by the system")
     parser.add_option('--failures', dest='failures',
                       action='store_true', default=False,
                       help="List the failures recorded by the system")
+    parser.add_option('--recent', dest='recent',
+                      action='store', default=None,
+                      help="(Use with --list or --failures): Only show jobs less than this many hours old")
     parser.add_option('--show', dest='show',
                       action='store_true', default=False,
                       help="Show details for a specific test recorded by the system")
@@ -783,8 +791,11 @@ def _main():
         parser.error('Can only use --change_ref with --project')
 
     level = logging.DEBUG if options.verbose else logging.INFO
-    logging.basicConfig(format=u'%(asctime)s %(levelname)s %(message)s',
+    logging.basicConfig(format=u'%(asctime)s %(levelname)s %(name)s %(message)s',
                         level=level)
+    logging.getLogger('paramiko.transport').setLevel(logging.WARNING)
+    logging.getLogger('paramiko.transport.sftp').setLevel(logging.WARNING)
+    logging.getLogger('requests.packages.urllib3.connectionpool').setLevel(logging.WARNING)
 
     queue = TestQueue(CONSTANTS.MYSQL_URL, CONSTANTS.MYSQL_USERNAME, CONSTANTS.MYSQL_PASSWORD, CONSTANTS.MYSQL_DB)
 
@@ -835,6 +846,11 @@ def _main():
         else:
             states = None
         for test in allTests:
+            updated = time.mktime(test.updated.timetuple())
+            age_hours = (now - updated) / 3600
+            if options.recent:
+                if age_hours > int(options.recent):
+                    continue
             state_count = state_dict.get(STATES[test.state], 0)+1
             state_dict[STATES[test.state]] = state_count
             result_count = result_dict.get(test.result, 0)+1
@@ -846,14 +862,14 @@ def _main():
                 node_ip = test.node_ip
             else:
                 node_ip = '(%s)'%test.node_ip
-            updated = time.mktime(test.updated.timetuple())
-            age = '%.02f' % ((now - updated) / 3600)
+            age = '%.02f' % (age_hours)
             duration = '-'
 
             if test.test_started and test.test_stopped:
                 started = time.mktime(test.test_started.timetuple())
                 stopped = time.mktime(test.test_stopped.timetuple())
-                duration = "%.02f"%((stopped - started)/3600)
+                if started < stopped:
+                    duration = "%.02f"%((stopped - started)/3600)
             t.add_row([test.project_name, test.change_ref, STATES[test.state], node_ip, test.result, age, duration])
         print state_dict
         print result_dict
@@ -861,26 +877,30 @@ def _main():
         return
     
     if options.failures:
-        t = PrettyTable(["Project", "Change", "State", "Result", "Duration", "URL"])
+        t = PrettyTable(["Project", "Change", "State", "Result", "Age", "Duration", "URL"])
         t.align = 'l'
         now = time.time()
         allTests = Test.getAllWhere(queue.db)
         for test in allTests:
             if not test.result or (test.result != 'Failed' and test.result.find('Aborted') != 0):
                 continue
+            updated = time.mktime(test.updated.timetuple())
+            age_hours = (now - updated) / 3600
+            if options.recent:
+                if age_hours > int(options.recent):
+                    continue
             if test.node_id:
                 node_ip = test.node_ip
             else:
                 node_ip = '(%s)'%test.node_ip
-            updated = time.mktime(test.updated.timetuple())
-            age = '%.02f' % ((now - updated) / 3600)
+            age = '%.02f' % (age_hours)
             duration = '-'
             
             if test.test_started and test.test_stopped:
                 started = time.mktime(test.test_started.timetuple())
                 stopped = time.mktime(test.test_stopped.timetuple())
                 duration = "%.02f"%((stopped - started)/3600)
-            t.add_row([test.project_name, test.change_num, STATES[test.state], test.result, duration, test.logs_url])
+            t.add_row([test.project_name, test.change_num, STATES[test.state], test.result, age, duration, test.logs_url])
         print t
         return
     
