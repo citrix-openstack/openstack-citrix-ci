@@ -59,7 +59,7 @@ class CONSTANTS:
     NODEPOOL_IMAGE = 'devstack-xenserver'
     NODE_USERNAME = 'jenkins'
     NODE_KEY = '/usr/workspace/scratch/openstack/infrastructure.hg/keys/nodepool'
-    MAX_RUNNING_TIME = 3600*3
+    MAX_RUNNING_TIME = 3*3600+15*60 # 3 hours and 15 minutes
     MYSQL_URL = '127.0.0.1'
     MYSQL_USERNAME = 'root'
     MYSQL_PASSWORD = ''
@@ -67,7 +67,7 @@ class CONSTANTS:
     POLL = 30
     RECHECK_REGEXP = re.compile("^(citrix recheck|recheck bug|recheck nobug)")
     VOTE = True
-    VOTE_PASSED_ONLY = False
+    VOTE_PASSED_ONLY = True
     VOTE_NEGATIVE = False
     VOTE_SERVICE_ACCOUNT = False
     VOTE_MESSAGE = "%(result)s using XenAPI driver with XenServer 6.2.\n"+\
@@ -346,11 +346,15 @@ class Test():
         environment += ' DEVSTACK_GATE_TEMPEST=1'
         environment += ' DEVSTACK_GATE_TEMPEST_FULL=1'
         environment += ' DEVSTACK_GATE_VIRT_DRIVER=xenapi'
-        # Set gate timeout to 2 hours
-        environment += ' DEVSTACK_GATE_TIMEOUT=240'
+        # Set gate timeout to 3 hours
+        environment += ' DEVSTACK_GATE_TIMEOUT=180'
         environment += ' APPLIANCE_NAME=devstack'
+        environment += ' ENABLED_SERVICES=g-api,g-reg,key,n-api,n-crt,n-obj,n-cpu,n-sch,horizon,mysql,rabbit,sysstat,dstat,pidstat,s-proxy,s-account,s-container,s-object,n-cond'
+        #cmd='echo sudo apt-get -y install moreutils > run_test_env'
+        #execute_command('ssh -i %s %s@%s %s'%(
+        #        CONSTANTS.NODE_KEY, CONSTANTS.NODE_USERNAME, node_ip, cmd))
         cmd='echo /usr/bin/git clone https://github.com/citrix-openstack/xenapi-os-testing '+\
-             '/home/jenkins/xenapi-os-testing > run_tests_env'
+             '/home/jenkins/xenapi-os-testing >> run_tests_env'
         execute_command('ssh -i %s %s@%s %s'%(
                 CONSTANTS.NODE_KEY, CONSTANTS.NODE_USERNAME, node_ip, cmd))
         cmd='echo "%s /home/jenkins/xenapi-os-testing/run_tests.sh" >> run_tests_env'%environment
