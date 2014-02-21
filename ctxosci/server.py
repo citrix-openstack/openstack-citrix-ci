@@ -22,3 +22,10 @@ class Server(object):
     def run(self, args):
         return self.command_for_this_node() + args
 
+    def scp(self, localfile, remotefile):
+        return (
+            ['scp']
+            + common_ssh_options.COMMON_SSH_OPTS
+            + [localfile, '{0}@{1}:{2}'.format(self.username, self.host, remotefile)]
+        )
+

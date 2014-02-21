@@ -1,6 +1,8 @@
 from ctxosci import node
 from ctxosci import executor
 from ctxosci import logserver
+from ctxosci import instructions
+from ctxosci import environment
 
 
 class GetDom0Logs(object):
@@ -75,3 +77,30 @@ class CheckConnection(object):
 
         return 0
 
+
+class RunTests(object):
+    def __init__(self, env=None):
+        env = env or dict()
+        self.executor = executor.create_executor(env.get('executor'))
+        self.node = node.Node(env)
+        self.change_ref = env.get('change_ref')
+
+    @classmethod
+    def parameters(cls):
+        return ['executor'] + node.Node.parameters() + ['change_ref']
+
+    def __call__(self):
+        self.executor.run(
+            self.node.scp(
+                'tempest_exclusion_list', '/tmp/tempest_exclusion_list')
+        )
+
+        self.executor.run(
+            self.node.run(instructions.check_out_testrunner())
+        )
+
+        self.executor.run(
+            self.node.run(
+                environment.get_environment(self.change_ref)
+                + instructions.execute_test_runner())
+        )

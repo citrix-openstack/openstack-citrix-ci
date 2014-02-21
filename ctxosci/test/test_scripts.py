@@ -1,4 +1,6 @@
 import unittest
+import mock
+
 from collections import namedtuple
 
 from ctxosci import scripts
@@ -28,3 +30,71 @@ class TestParameterToArg(unittest.TestCase):
         with self.assertRaises(SystemExit) as e:
             parser.parse_args('p1value'.split())
 
+
+def create_somecommand(collector=None):
+    collector = [] if collector is None else collector
+
+    class SomeCommand(object):
+        def __init__(self, env):
+            collector.append(dict(env=env))
+
+        def __call__(self):
+            collector.append('executed')
+            return 'result'
+
+    return SomeCommand
+
+
+class SomeArgs(object):
+    def __init__(self):
+        self.key = 'value'
+
+
+class TestRunCommand(unittest.TestCase):
+    def setUp(self):
+        self.patchers = [
+            mock.patch('ctxosci.scripts.setup_logging'),
+            mock.patch('ctxosci.scripts.get_parser_for')
+        ]
+        [patcher.start() for patcher in self.patchers]
+
+        self.parser = scripts.get_parser_for.return_value = mock.Mock()
+        self.parser.parse_args.return_value = SomeArgs()
+
+    def test_logging_configured(self):
+        scripts.run_command(create_somecommand())
+        self.assertTrue(scripts.setup_logging.called)
+
+    def test_parser_acquired(self):
+        command = create_somecommand()
+        scripts.run_command(command)
+        scripts.get_parser_for.assert_called_once_with(command)
+
+    def test_args_parsed(self):
+        scripts.run_command(create_somecommand())
+        self.parser.parse_args.assert_called_once_with()
+
+    def test_command_instantiated(self):
+        collector = []
+        scripts.run_command(create_somecommand(collector))
+        self.assertIn(
+            dict(env=dict(key='value')),
+            collector
+        )
+
+    def test_command_executed(self):
+        collector = []
+        scripts.run_command(create_somecommand(collector))
+        self.assertIn(
+            'executed',
+            collector
+        )
+
+    def test_command_result(self):
+        self.assertEquals(
+            'result',
+            scripts.run_command(create_somecommand())
+        )
+
+    def tearDown(self):
+        [patcher.stop() for patcher in self.patchers]
