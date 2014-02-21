@@ -315,3 +315,9 @@ To copy dom0 files from NODE to LOGUSER@LOGSERVER:/root/something
     LOGUSER LOGSERVER /root/something
 
 Use '''print''' instead of exec to see, what's about to be executed.
+
+Run the tests on a node:
+
+.. code-block:: bash
+
+    osci-run-tests print jenkins NODE refs/changes/41/72341/6
