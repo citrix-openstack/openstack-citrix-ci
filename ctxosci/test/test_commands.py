@@ -4,6 +4,8 @@ from ctxosci import commands
 from ctxosci import logserver
 from ctxosci import node
 from ctxosci import executor
+from ctxosci import instructions
+from ctxosci import environment
 
 
 COMMON_SSH_OPTS=(
@@ -88,3 +90,42 @@ class TestGetDom0Logs(unittest.TestCase):
 
     def test_sources_parameter_included(self):
         self.assertIn('sources', commands.GetDom0Logs.parameters())
+
+
+class TestRunTests(unittest.TestCase):
+    def test_parameters(self):
+        cmd = commands.RunTests
+        self.assertEquals(
+            ['executor', 'node_username', 'node_host', 'change_ref'],
+            cmd.parameters()
+        )
+
+    def test_changeref_parsing(self):
+        cmd = commands.RunTests(dict(change_ref='ref'))
+        self.assertEquals('ref', cmd.change_ref)
+
+    def test_create_executor(self):
+        cmd = commands.RunTests(dict(executor='print'))
+        self.assertEquals('PrintExecutor', cmd.executor.__class__.__name__)
+
+    def test_default_executor(self):
+        cmd = commands.RunTests()
+        self.assertEquals('FakeExecutor', cmd.executor.__class__.__name__)
+
+    def test_node_created(self):
+        cmd = commands.RunTests()
+        self.assertIsNotNone(cmd.node)
+
+    def test_execution(self):
+        cmd = commands.RunTests(dict(change_ref='CHANGE'))
+        cmd()
+
+        self.assertEquals(
+            [
+                SSH_TO_NODE + instructions.check_out_testrunner(),
+                SSH_TO_NODE
+                + environment.get_environment('CHANGE')
+                + instructions.execute_test_runner()
+            ],
+            cmd.executor.executed_commands
+        )

@@ -26,6 +26,8 @@ import Queue
 import paramiko
 import MySQLdb
 from nodepool import nodedb, nodepool
+from ctxosci import environment
+from ctxosci import instructions
 
 """ importing python git commands """
 from git import Repo
@@ -341,24 +343,12 @@ class Test():
 
         self.update(node_id=node_id, node_ip=node_ip, result='')
 
-        environment  = 'ZUUL_URL=https://review.openstack.org'
-        environment += ' ZUUL_REF=%s'%self.change_ref
-        environment += ' PYTHONUNBUFFERED=true'
-        environment += ' DEVSTACK_GATE_TEMPEST=1'
-        environment += ' DEVSTACK_GATE_TEMPEST_FULL=1'
-        environment += ' DEVSTACK_GATE_VIRT_DRIVER=xenapi'
-        # Set gate timeout to 3 hours
-        environment += ' DEVSTACK_GATE_TIMEOUT=180'
-        environment += ' APPLIANCE_NAME=devstack'
-        environment += ' ENABLED_SERVICES=g-api,g-reg,key,n-api,n-crt,n-obj,n-cpu,n-sch,horizon,mysql,rabbit,sysstat,dstat,pidstat,s-proxy,s-account,s-container,s-object,n-cond'
-        #cmd='echo sudo apt-get -y install moreutils > run_test_env'
-        #execute_command('ssh -i %s %s@%s %s'%(
-        #        CONSTANTS.NODE_KEY, CONSTANTS.NODE_USERNAME, node_ip, cmd))
-        cmd='echo /usr/bin/git clone https://github.com/citrix-openstack/xenapi-os-testing '+\
-             '/home/jenkins/xenapi-os-testing >> run_tests_env'
+        cmd='echo %s >> run_tests_env' % ' '.join(instructions.check_out_testrunner())
         execute_command('ssh -i %s %s@%s %s'%(
                 CONSTANTS.NODE_KEY, CONSTANTS.NODE_USERNAME, node_ip, cmd))
-        cmd='echo "%s /home/jenkins/xenapi-os-testing/run_tests.sh" >> run_tests_env'%environment
+        cmd='echo "%s %s" >> run_tests_env' % (
+            ' '.join(environment.get_environment(self.change_ref)),
+            ' '.join(instructions.execute_test_runner()))
         execute_command('ssh -i %s %s@%s %s'%(
                 CONSTANTS.NODE_KEY, CONSTANTS.NODE_USERNAME, node_ip, cmd))
         # TODO: For some reason invoking this immediately fails...

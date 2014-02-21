@@ -32,3 +32,12 @@ def check_connection():
     env = parser.parse_args()
     command = command_class(vars(env))
     sys.exit(command())
+
+
+def run_tests():
+    setup_logging()
+    command_class = commands.RunTests
+    parser = get_parser_for(command_class)
+    env = parser.parse_args()
+    command = command_class(vars(env))
+    sys.exit(command())
