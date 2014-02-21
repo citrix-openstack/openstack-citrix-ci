@@ -3,8 +3,6 @@ import textwrap
 
 def get_environment(change_ref):
     return textwrap.dedent("""
-    TEMPEST_EXCLUSION_LIST=/tmp/tempest_exclusion_list
-    TEMPEST_EXCLUSION_LOG=/tmp/tempest_exclusion_log
     ZUUL_URL=https://review.openstack.org
     ZUUL_REF=%s
     PYTHONUNBUFFERED=true

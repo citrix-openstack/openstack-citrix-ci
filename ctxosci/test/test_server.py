@@ -17,3 +17,12 @@ class TestServer(unittest.TestCase):
                     ssh_options=' '.join(common_ssh_options.COMMON_SSH_OPTS))
             ).split(),
             srv.run(['cmd1', 'cmd2']))
+
+    def test_scp(self):
+        srv = Server()
+        self.assertEquals(
+            (
+                'scp {ssh_options} localfile USERNAME@HOST:remotefile'.format(
+                    ssh_options=' '.join(common_ssh_options.COMMON_SSH_OPTS))
+            ).split(),
+            srv.scp('localfile', 'remotefile'))

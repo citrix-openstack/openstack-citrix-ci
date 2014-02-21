@@ -9,8 +9,6 @@ class TestEnvironment(unittest.TestCase):
         change_ref = 'SOME_CHANGEREF'
 
         expected_env = textwrap.dedent("""
-        TEMPEST_EXCLUSION_LIST=/tmp/tempest_exclusion_list
-        TEMPEST_EXCLUSION_LOG=/tmp/tempest_exclusion_log
         ZUUL_URL=https://review.openstack.org
         ZUUL_REF=SOME_CHANGEREF
         PYTHONUNBUFFERED=true

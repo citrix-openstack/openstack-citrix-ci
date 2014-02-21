@@ -14,6 +14,9 @@ COMMON_SSH_OPTS=(
 SSH_TO_LOGSERVER=(
     'ssh {SSH_OPTIONS} LOGSERVER_USERNAME@LOGSERVER_HOST'.format(
         SSH_OPTIONS=COMMON_SSH_OPTS).split())
+SCP=(
+    'scp {SSH_OPTIONS}'.format(
+        SSH_OPTIONS=COMMON_SSH_OPTS).split())
 SSH_TO_NODE=(
     'ssh {SSH_OPTIONS} NODE_USERNAME@NODE_HOST'.format(
         SSH_OPTIONS=COMMON_SSH_OPTS).split())
@@ -120,8 +123,11 @@ class TestRunTests(unittest.TestCase):
         cmd = commands.RunTests(dict(change_ref='CHANGE'))
         cmd()
 
+        self.maxDiff = 4096
+
         self.assertEquals(
             [
+                SCP + ['tempest_exclusion_list', 'NODE_USERNAME@NODE_HOST:/tmp/tempest_exclusion_list'],
                 SSH_TO_NODE + instructions.check_out_testrunner(),
                 SSH_TO_NODE
                 + environment.get_environment('CHANGE')
