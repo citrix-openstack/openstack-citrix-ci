@@ -301,8 +301,6 @@ class Test():
 
         self.update(node_id=node_id, node_ip=node_ip, result='')
 
-        execute_command('scp -i %s tempest_exclusion_list %s@%s:/tmp/tempest_exclusion_list'%(
-            CONSTANTS.NODE_KEY, CONSTANTS.NODE_USERNAME, node_ip))
         cmd='echo %s >> run_tests_env' % ' '.join(instructions.check_out_testrunner())
         execute_command('ssh -i %s %s@%s %s'%(
                 CONSTANTS.NODE_KEY, CONSTANTS.NODE_USERNAME, node_ip, cmd))
