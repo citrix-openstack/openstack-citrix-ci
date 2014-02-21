@@ -29,9 +29,6 @@ from nodepool import nodedb, nodepool
 from ctxosci import environment
 from ctxosci import instructions
 
-""" importing python git commands """
-from git import Repo
-
 from prettytable import PrettyTable
 
 QUEUED=1
@@ -67,6 +64,7 @@ class CONSTANTS:
     MYSQL_PASSWORD = ''
     MYSQL_DB = 'openstack_ci'
     POLL = 30
+    RUN_TESTS = True
     RECHECK_REGEXP = re.compile("^(citrix recheck|recheck bug|recheck nobug)")
     VOTE = True
     VOTE_PASSED_ONLY = True
@@ -76,47 +74,7 @@ class CONSTANTS:
                    "* Logs: %(log)s\n\n"+\
                    "XenServer CI contact: openstack@citrix.com."
     REVIEW_REPO_NAME='review'
-    PROJECT_CONFIG={
-        'sandbox':{
-            'name':'sandbox',
-            'repo_path':"/tmp/opt/stack/gerrit_cache/sandbox",
-            'review_repo': "https://review.openstack.org/openstack-dev/sandbox",
-            'files_to_check' : [''],
-            'files_to_ignore' : []
-            },
-        'nova':{
-            'name':'nova',
-            'repo_path':"/tmp/opt/stack/gerrit_cache/nova",
-            'review_repo': "https://review.openstack.org/openstack/nova",
-            'files_to_check' : [''],
-            'files_to_ignore' : ['nova/virt/baremetal',
-                                 'nova/virt/disk',
-                                 'nova/virt/docker',
-                                 'nova/virt/hyperv',
-                                 'nova/virt/libvirt',
-                                 'nova/virt/vmwareapi',
-                                 'nova/tests/virt/baremetal',
-                                 'nova/tests/virt/disk',
-                                 'nova/tests/virt/docker',
-                                 'nova/tests/virt/hyperv',
-                                 'nova/tests/virt/libvirt',
-                                 'nova/tests/virt/vmwareapi',]
-            },
-        'tempest':{
-            'name':'tempest',
-            'repo_path':"/tmp/opt/stack/gerrit_cache/tempest",
-            'review_repo': "https://review.openstack.org/openstack/tempest",
-            'files_to_check' : [''],
-            'files_to_ignore' : []
-            },
-        'devstack':{
-            'name':'devstack',
-            'repo_path':"/tmp/opt/stack/gerrit_cache/devstack",
-            'review_repo': "https://review.openstack.org/openstack-dev/devstack",
-            'files_to_check' : [''],
-            'files_to_ignore' : []
-            },
-        }
+    PROJECT_CONFIG=['openstack-dev/sandbox', 'openstack/nova', 'openstack/tempest', 'openstack-dev/devstack']
 
 def db_execute(db, sql):
     cur = db.cursor()
@@ -343,9 +301,23 @@ class Test():
 
         self.update(node_id=node_id, node_ip=node_ip, result='')
 
+<<<<<<< Updated upstream
         execute_command('scp -i %s tempest_exclusion_list %s@%s:/tmp/tempest_exclusion_list'%(
             CONSTANTS.NODE_KEY, CONSTANTS.NODE_USERNAME, node_ip))
         cmd='echo %s >> run_tests_env' % ' '.join(instructions.check_out_testrunner())
+=======
+        environment  = 'ZUUL_URL=https://review.openstack.org'
+        environment += ' ZUUL_REF=%s'%self.change_ref
+        environment += ' PYTHONUNBUFFERED=true'
+        environment += ' DEVSTACK_GATE_TEMPEST=1'
+        environment += ' DEVSTACK_GATE_TEMPEST_FULL=1'
+        environment += ' DEVSTACK_GATE_VIRT_DRIVER=xenapi'
+        # Set gate timeout to 3 hours
+        environment += ' DEVSTACK_GATE_TIMEOUT=180'
+        environment += ' APPLIANCE_NAME=devstack'
+        cmd='echo /usr/bin/git clone https://github.com/citrix-openstack/xenapi-os-testing '+\
+             '/home/jenkins/xenapi-os-testing >> run_tests_env'
+>>>>>>> Stashed changes
         execute_command('ssh -i %s %s@%s %s'%(
                 CONSTANTS.NODE_KEY, CONSTANTS.NODE_USERNAME, node_ip, cmd))
         cmd='echo "%s %s" >> run_tests_env' % (
@@ -531,6 +503,8 @@ class TestQueue():
     def triggerJobs(self):
         allTests = Test.getAllWhere(self.db, state=QUEUED)
         self.log.info('%d tests queued...'%len(allTests))
+        if not CONSTANTS.RUN_TESTS:
+            return
         for test in allTests:
             test.runTest(self.nodepool)
 
@@ -601,35 +575,14 @@ def is_event_matching_criteria(event):
     elif not isinstance(event, PatchsetCreatedEvent):
         return False
     if event.change.branch=="master":
-        if get_project_config(event.change.project) != None:
+        if is_project_configured(event.change.project):
             logging.info("Event %s is matching event criteria"%event)
             return True
     return False
 
-def get_project_config(submitted_project):
-    for project_name in CONSTANTS.PROJECT_CONFIG.keys():
-        if submitted_project.endswith('/%s'%project_name):
-            project_config = CONSTANTS.PROJECT_CONFIG[project_name]
-            return project_config
-    return None
+def is_project_configured(submitted_project):
+    return submitted_project in CONSTANTS.PROJECT_CONFIG
 
-def are_files_matching_criteria_event(event):
-    change_ref = event.patchset.ref
-    submitted_project = event.change.project
-    logging.info("Checking for file match criteria changeref: %s, project: %s" %
-                 (change_ref, submitted_project))
-    
-    project_config = get_project_config(event.change.project)
-    if project_config != None:
-        files_matched, commitid = are_files_matching_criteria(project_config['repo_path'],
-                                                              project_config["review_repo"],
-                                                              project_config["files_to_check"],
-                                                              project_config["files_to_ignore"],
-                                                              change_ref)
-        if files_matched:
-                return True
-    return False
-    
 def execute_command(command, delimiter=' ', silent=False, return_streams=False):
     command_as_array = command.split(delimiter)
     if not silent:
@@ -645,73 +598,6 @@ def execute_command(command, delimiter=' ', silent=False, return_streams=False):
     if return_streams:
         return p.returncode, output, errors
     return p.returncode == 0
-
-def is_file_matching_criteria(submitted_file, files_to_check, files_to_ignore):
-    while True:
-        if submitted_file in files_to_check:
-            return True
-        if submitted_file in files_to_ignore:
-            return False
-        
-        if os.path.sep in submitted_file:
-            submitted_file = os.path.dirname(submitted_file)
-        else:
-            break
-    return '' in files_to_check
-
-def are_files_matching_criteria(local_repo_path, review_repo_url, files_to_check, files_to_ignore, change_ref):
-    """ Check out the even from the depot """
-    """git show --name-only  --pretty="format:" HEAD # displays the files"""
-    """  Issue checkout using command line"""
-
-    """ Check the files and see if they are matching criteria"""
-
-    # Would love to short-circuit here, but can't because we want the commit ID
-    #if len(files_to_ignore) == 0 and files_to_check == ['']:
-    #    return True, commit_id
-
-    if not os.path.exists(local_repo_path):
-        os.makedirs(local_repo_path)
-    os.chdir(local_repo_path)
-    if not os.path.exists(os.path.join(local_repo_path, '.git')):
-        logging.info("Initial clone of repo (may take a long time)")
-        execute_command("git clone -o "+CONSTANTS.REVIEW_REPO_NAME+" "+review_repo_url+" "+local_repo_path)
-
-    logging.info("Fetching the changes submitted")
-    is_executed = execute_command("git checkout master")
-    if not is_executed:
-        return False, None
-    
-    #git fetch https://review.openstack.org/openstack/neutron refs/changes/24/57524/9 &&    
-    is_executed = execute_command("git fetch " + review_repo_url + " " + change_ref)
-    if not is_executed:
-        return False, None
-    is_executed = execute_command("git checkout FETCH_HEAD")
-    if not is_executed:
-        return False, None
-    
-    repo = Repo(local_repo_path)
-
-    # TODO patch the inspection repo with the commit in patch
-    # resetting firs the reference to master branch
-    review_remote = None
-    for remote in repo.remotes:
-        if remote.name == CONSTANTS.REVIEW_REPO_NAME:
-            review_remote=remote
-            break
-    if not review_remote:
-        logging.error("Unable to find review repo. It is used to check if files are matched")
-        return False, None
-    
-    headcommit = repo.head.commit
-    commitid = headcommit.hexsha
-    submitted_files = headcommit.stats.files.keys()
-    for submitted_file in submitted_files:
-        if is_file_matching_criteria(submitted_file, files_to_check, files_to_ignore):
-            logging.info("Some files changed match the test criteria")
-            return True, commitid
-
-    return False, None
 
 def vote(commitid, vote_num, message):
     #ssh -p 29418 review.example.com gerrit review -m '"Test failed on MegaTestSystem <http://megatestsystem.org/tests/1234>"'
@@ -734,12 +620,10 @@ def vote(commitid, vote_num, message):
 
 def queue_event(queue, event):
     logging.info("patchset values : %s" %event)
-    change_ref = event.patchset.ref
-    project_config = get_project_config(event.change.project)
-    if project_config != None:
-        project_name = project_config['name']
-        commitid = event.patchset.revision
-        queue.addTest(change_ref, project_name, commitid)
+    if is_project_configured(event.change.project):
+        queue.addTest(event.patchset.ref,
+                      event.change.project,
+                      event.patchset.revision)
 
 def check_for_change_ref(option, opt_str, value, parser):
     if not parser.values.change_ref:
@@ -779,7 +663,7 @@ def _main():
                       help="Show details for a specific test recorded by the system")
 
     (options, _args) = parser.parse_args()
-    if options.change_ref and not options.project:
+    if options.change_ref and (not options.project or not options.commitid):
         parser.error('Can only use --change_ref with --project')
 
     level = logging.DEBUG if options.verbose else logging.INFO
@@ -814,17 +698,7 @@ def _main():
         if options.project not in CONSTANTS.PROJECT_CONFIG:
             logging.info("Project specified does not match criteria")
             return
-        project_config = CONSTANTS.PROJECT_CONFIG[options.project]
-        files_matched, commitid = are_files_matching_criteria(project_config['repo_path'],
-                                                              project_config["review_repo"],
-                                                              project_config["files_to_check"],
-                                                              project_config["files_to_ignore"],
-                                                              options.change_ref)
-        if files_matched:
-            queue.addTest(options.change_ref, options.project, commitid)
-        else:
-            logging.error("Changeref specified does not match file match criteria")
-        return
+        queue.addTest(options.change_ref, options.project, options.commitid)
 
     if options.list:
         t = PrettyTable(["Project", "Change", "State", "IP", "Result", "Age (hours)", "Duration"])
@@ -919,8 +793,7 @@ def _main():
                 logging.debug("Event: %s", event)
                 """ Logic starts here """
                 if is_event_matching_criteria(event):
-                    if are_files_matching_criteria_event(event):
-                        queue_event(queue, event)
+                    queue_event(queue, event)
 
                 if isinstance(event, ErrorEvent):
                     logging.error(event.error)
