@@ -12,32 +12,25 @@ def get_parser_for(command):
     return parser
 
 
+def run_command(cmd_class):
+    setup_logging()
+    parser = get_parser_for(cmd_class)
+    env = parser.parse_args()
+    command = cmd_class(vars(env))
+    return command()
+
+
 def setup_logging():
     logging.basicConfig(level=logging.DEBUG)
 
 
 def cp_dom0_logserver():
-    setup_logging()
-    command_class = commands.GetDom0Logs
-    parser = get_parser_for(command_class)
-    env = parser.parse_args()
-    command = command_class(vars(env))
-    command()
+    sys.exit(run_command(commands.GetDom0Logs))
 
 
 def check_connection():
-    setup_logging()
-    command_class = commands.CheckConnection
-    parser = get_parser_for(command_class)
-    env = parser.parse_args()
-    command = command_class(vars(env))
-    sys.exit(command())
+    sys.exit(run_command(commands.CheckConnection))
 
 
 def run_tests():
-    setup_logging()
-    command_class = commands.RunTests
-    parser = get_parser_for(command_class)
-    env = parser.parse_args()
-    command = command_class(vars(env))
-    sys.exit(command())
+    sys.exit(run_command(commands.RunTests))
