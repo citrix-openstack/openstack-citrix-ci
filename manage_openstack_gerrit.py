@@ -234,7 +234,7 @@ class Test():
               ' result VARCHAR(50),'+\
               ' logs_url VARCHAR(200),'+\
               ' report_url VARCHAR(200),'+\
-              ' updated TIMESTAMP default CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,' +\
+              ' updated TIMESTAMP' +\
               ' test_started TIMESTAMP,' +\
               ' test_stopped TIMESTAMP,' +\
               ' failed TEXT,' +\
