@@ -387,7 +387,7 @@ class Test():
                 # This node is broken somehow... Mark it as aborted
                 if self.result and self.result.startswith('Aborted: '):
                     return self.result
-                return "Aborted: Unknown"
+                return "Aborted: No result found"
             
             return stdout.splitlines()[0]
         except Exception, e:
