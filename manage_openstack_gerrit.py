@@ -76,21 +76,47 @@ class CONSTANTS:
     REVIEW_REPO_NAME='review'
     PROJECT_CONFIG=['openstack-dev/sandbox', 'openstack/nova', 'openstack/tempest', 'openstack-dev/devstack']
 
-def db_execute(db, sql):
-    cur = db.cursor()
-    try:
-        cur.execute(sql)
-        db.commit()
-    except:
-        logging.error('Error running SQL %s'%sql)
-        db.rollback()
+class DB:
+    log = logging.getLogger('citrix.db')
+    def __init__(self, host, user, passwd):
+        self.conn = None
+        self.host = host
+        self.user = user
+        self.passwd = passwd
+        self.connect()
+    
+    def connect(self):
+        if self.conn is not None:
+            try:
+                self.conn.close()
+            except Exception, e:
+                self.log.exception(e)
+        self.conn = MySQLdb.connect(self.host, self.user, self.passwd)
 
-def db_query(db, sql):
-    cur = db.cursor()
-    cur.execute(sql)
-    results = cur.fetchall()
-    db.commit()
-    return results
+    def execute(self, sql, retry=True):
+        cur = self.conn.cursor()
+        try:
+            cur.execute(sql)
+            self.conn.commit()
+        except (AttributeError, MySQLdb.OperationalError):
+            if retry:
+                self.connect()
+                self.execute(sql, False)
+        except:
+            self.log.error('Error running SQL %s'%sql)
+            self.conn.rollback()
+
+    def query(self, sql, retry=True):
+        cur = self.conn.cursor()
+        try:
+            cur.execute(sql)
+            results = cur.fetchall()
+            self.conn.commit()
+            return results
+        except (AttributeError, MySQLdb.OperationalError):
+            if retry:
+                self.connect()
+                return self.query(sql, False)
 
 def getSSHObject(ip, username, key_filename):
     if ip is None:
@@ -214,7 +240,7 @@ class Test():
               ' failed TEXT,' +\
               ' PRIMARY KEY (project_name, change_num)'+\
               ')'
-        db_execute(db, sql)
+        db.execute(sql)
 
     @classmethod
     def getAllWhere(cls, db, **kwargs):
@@ -228,7 +254,7 @@ class Test():
             assert sql[-4:] == " AND"
             sql = sql[:-4] # Strip off the last AND
         sql += ' ORDER BY updated ASC'
-        results = db_query(db, sql)
+        results = db.query(sql)
 
         retRecords = []
         for result in results:
@@ -243,7 +269,7 @@ class Test():
         sql = 'SELECT * FROM test WHERE'+\
               ' project_name="%s"'+\
               ' AND change_num="%s"'
-        results = db_query(db, sql%(project_name, change_num))
+        results = db.query(sql%(project_name, change_num))
         if len(results) == 0:
             return None
         
@@ -258,7 +284,7 @@ class Test():
               'VALUES("%s","%s","%s","%s","%s","%s")'%(
             self.project_name, self.change_num, self.change_ref,
             self.state, self.created, self.commit_id)
-        db_execute(self.db, SQL)
+        self.db.execute(SQL)
         self.log.info("Job for %s queued"%self.change_num)
 
     def update(self, **kwargs):
@@ -275,11 +301,11 @@ class Test():
         assert sql[-1:] == ","
         sql = sql[:-1] # Strip off the last ,
         sql += ' WHERE project_name="%s" AND change_num="%s"'%(self.project_name, self.change_num)
-        db_execute(self.db, sql)
+        self.db.execute(sql)
 
     def delete(self):
         SQL = 'DELETE FROM test WHERE project_name="%s" AND change_num="%s"'
-        db_execute(self.db, SQL%(self.project_name, self.change_num))
+        self.db.execute(SQL%(self.project_name, self.change_num))
 
     def runTest(self, nodepool):
         if self.node_id:
@@ -456,21 +482,20 @@ def copy_logs(source_masks, target_dir, host, username, key, upload=True):
 class TestQueue():
     log = logging.getLogger('citrix.TestQueue')
     def __init__(self, host, username, password, database_name):
-        self.db = MySQLdb.connect(host=host,
-                                  user=username,
-                                  passwd=password)
+        self.db = DB(host=host,
+                     user=username,
+                     passwd=password)
         self.initDB(database_name)
         self.nodepool = NodePool(CONSTANTS.NODEPOOL_IMAGE)
         self.collectResultsThread = CollectResultsThread(self)
         self.collectResultsThread.start()
         
     def initDB(self, database):
-        cur = self.db.cursor()
         try:
-            cur.execute('USE %s'%database)
+            self.db.execute('USE %s'%database)
         except:
-            cur.execute('CREATE DATABASE %s'%database)
-            cur.execute('USE %s'%database)
+            self.db.execute('CREATE DATABASE %s'%database)
+            self.db.execute('USE %s'%database)
             
         Test.createTable(self.db)
     
