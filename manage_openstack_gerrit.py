@@ -470,8 +470,11 @@ def copy_logs(source_masks, target_dir, host, username, key, upload=True):
                 source_file = os.path.join(source_dir, filename)
                 if S_ISREG(source.stat(source_file).st_mode):
                     logger.info('Copying %s to %s'%(source_file, target_dir))
-                    sftp_method(os.path.join(source_dir, filename),
-                                os.path.join(target_dir, filename))
+                    try:
+                        sftp_method(os.path.join(source_dir, filename),
+                                    os.path.join(target_dir, filename))
+                    except IOError, e:
+                        logger.exception(e)
         except IOError, e:
             if e.errno != errno.ENOENT:
                 raise e
