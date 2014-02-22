@@ -328,16 +328,16 @@ class Test():
         self.update(node_id=node_id, node_ip=node_ip, result='')
 
         cmd='echo %s >> run_tests_env' % ' '.join(instructions.check_out_testrunner())
-        execute_command('ssh -i %s %s@%s %s'%(
+        execute_command('ssh -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i %s %s@%s %s'%(
                 CONSTANTS.NODE_KEY, CONSTANTS.NODE_USERNAME, node_ip, cmd))
         cmd='echo "%s %s" >> run_tests_env' % (
             ' '.join(environment.get_environment(self.change_ref)),
             ' '.join(instructions.execute_test_runner()))
-        execute_command('ssh -i %s %s@%s %s'%(
+        execute_command('ssh -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i %s %s@%s %s'%(
                 CONSTANTS.NODE_KEY, CONSTANTS.NODE_USERNAME, node_ip, cmd))
         # TODO: For some reason invoking this immediately fails...
         time.sleep(5)
-        execute_command('ssh$-i$%s$%s@%s$nohup bash /home/jenkins/run_tests_env < /dev/null > run_tests.log 2>&1 &'%(
+        execute_command('ssh$-q$-o$BatchMode=yes$-o$UserKnownHostsFile=/dev/null$-o$StrictHostKeyChecking=no$-i$%s$%s@%s$nohup bash /home/jenkins/run_tests_env < /dev/null > run_tests.log 2>&1 &'%(
                 CONSTANTS.NODE_KEY, CONSTANTS.NODE_USERNAME, node_ip), '$')
         self.update(state=RUNNING)
         
@@ -358,7 +358,7 @@ class Test():
             return False
         
         try:
-            success = execute_command('ssh -i %s %s@%s ps -p `cat /home/jenkins/workspace/testing/gate.pid`'%(
+            success = execute_command('ssh -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i %s %s@%s ps -p `cat /home/jenkins/workspace/testing/gate.pid`'%(
                     CONSTANTS.NODE_KEY, CONSTANTS.NODE_USERNAME, self.node_ip), silent=True)
             self.log.info('Gate-is-running on job %s (%s) returned: %s'%(
                           self, self.node_ip, success))
@@ -373,7 +373,7 @@ class Test():
             self.log.error('Attempting to retrieve results for %s but no node IP address'%self)
             return "Aborted: No IP"
         try:
-            code, stdout, stderr = execute_command('ssh -i %s %s@%s cat result.txt'%(
+            code, stdout, stderr = execute_command('ssh -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i %s %s@%s cat result.txt'%(
                     CONSTANTS.NODE_KEY, CONSTANTS.NODE_USERNAME, self.node_ip), silent=True,
                                                    return_streams=True)
             self.log.info('Result: %s (Err: %s)'%(stdout, stderr))
@@ -616,7 +616,7 @@ def vote(commitid, vote_num, message):
         logging.error("Did not vote -1 for commitid %s, vote %s" % (commitid, vote_num))
         vote_num = "0"
         message += "\n\nNegative vote suppressed"
-    vote_cmd = "ssh$-p$%d$%s@%s$gerrit$review"%(CONSTANTS.GERRIT_PORT, CONSTANTS.GERRIT_USERNAME, CONSTANTS.GERRIT_HOST)
+    vote_cmd = "ssh$-q$-o$BatchMode=yes$-o$UserKnownHostsFile=/dev/null$-o$StrictHostKeyChecking=no$-p$%d$%s@%s$gerrit$review"%(CONSTANTS.GERRIT_PORT, CONSTANTS.GERRIT_USERNAME, CONSTANTS.GERRIT_HOST)
     vote_cmd = vote_cmd + "$-m$'" + message + "'"
     if CONSTANTS.VOTE_SERVICE_ACCOUNT:
         vote_cmd = vote_cmd + "$--verified=" + vote_num
