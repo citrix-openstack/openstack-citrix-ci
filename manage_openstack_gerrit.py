@@ -346,9 +346,6 @@ class Test():
             self.log.error('Checking job %s is running but no node IP address'%self)
             return False
         updated = time.mktime(self.updated.timetuple())
-        if (time.time() - updated < 300):
-            # Allow 5 minutes for the gate PID to exist
-            return True
         
         # Absolute maximum running time of 2 hours.  Note that if by happy chance the tests have finished
         # this result will be over-written by retrieveResults
@@ -358,7 +355,7 @@ class Test():
             return False
         
         try:
-            success = execute_command('ssh -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i %s %s@%s ps -p `cat /home/jenkins/workspace/testing/gate.pid`'%(
+            success = execute_command('ssh -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i %s %s@%s ps -p `cat /home/jenkins/run_tests.pid`'%(
                     CONSTANTS.NODE_KEY, CONSTANTS.NODE_USERNAME, self.node_ip), silent=True)
             self.log.info('Gate-is-running on job %s (%s) returned: %s'%(
                           self, self.node_ip, success))
