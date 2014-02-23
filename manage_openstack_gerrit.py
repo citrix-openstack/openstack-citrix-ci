@@ -347,6 +347,10 @@ class Test():
             return False
         updated = time.mktime(self.updated.timetuple())
         
+        if (time.time() - updated < 300):
+            # Allow 5 minutes for the gate PID to exist
+            return True
+
         # Absolute maximum running time of 2 hours.  Note that if by happy chance the tests have finished
         # this result will be over-written by retrieveResults
         if (time.time() - updated > CONSTANTS.MAX_RUNNING_TIME):
