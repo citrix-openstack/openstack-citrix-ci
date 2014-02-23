@@ -65,14 +65,13 @@ class CONSTANTS:
     MYSQL_DB = 'openstack_ci'
     POLL = 30
     RUN_TESTS = True
-    RECHECK_REGEXP = re.compile("^(citrix recheck|recheck bug|recheck nobug)")
+    RECHECK_REGEXP = re.compile("^(citrix recheck|recheck bug|recheck nobug)", re.IGNORECASE)
     VOTE = True
     VOTE_PASSED_ONLY = True
     VOTE_NEGATIVE = False
     VOTE_SERVICE_ACCOUNT = False
-    VOTE_MESSAGE = "%(result)s using XenAPI driver with XenServer 6.2.\n"+\
-                   "* Logs: %(log)s\n\n"+\
-                   "XenServer CI contact: openstack@citrix.com."
+    VOTE_MESSAGE = "%(result)s using XenAPI driver with XenServer 6.2: Logs at %(log)s\n\n"+\
+                   "Recheck supported; use \"citrix recheck\" to trigger only xenserver re-check.  XenServer CI contact: openstack@citrix.com."
     REVIEW_REPO_NAME='review'
     PROJECT_CONFIG=['openstack-dev/sandbox', 'openstack/nova', 'openstack/tempest', 'openstack-dev/devstack']
 
