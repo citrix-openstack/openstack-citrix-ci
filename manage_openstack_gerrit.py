@@ -308,10 +308,10 @@ class Test():
 
     def runTest(self, nodepool):
         if self.node_id:
-            node_id = self.node_id
-            node_ip = self.node_ip
-        else:
-            node_id, node_ip = nodepool.getNode()
+            nodepool.deleteNode(self.node_id)
+            self.update(node_id=0)
+
+        node_id, node_ip = nodepool.getNode()
 
         if not node_id:
             return
