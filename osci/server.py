@@ -2,6 +2,8 @@ from osci import common_ssh_options
 
 
 class Server(object):
+    USERNAME=None
+    HOST=None
 
     def __init__(self, env=None):
         env = env or dict()
