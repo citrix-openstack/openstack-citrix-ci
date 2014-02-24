@@ -80,20 +80,20 @@ class TestQueue():
         try:
             result = test.retrieveResults(tmpPath)
             if not result:
-                logging.info('No result obtained from %s'%test)
+                logging.info('No result obtained from %s', test)
                 return
             
             code, fail_stdout, stderr = execute_command('grep$... FAIL$%s/run_tests.log'%tmpPath,
                                                         delimiter='$',
                                                         return_streams=True)
-            self.log.info('Result: %s (Err: %s)'%(fail_stdout, stderr))
+            self.log.info('Result: %s (Err: %s)', (fail_stdout, stderr))
                 
-            self.log.info('Copying logs for %s'%(test))
+            self.log.info('Copying logs for %s', test)
             result_path = os.path.join(Configuration.SFTP_COMMON, test.change_ref)
             copy_logs(['%s/*'%tmpPath], os.path.join(Configuration.SFTP_BASE, result_path),
                       Configuration.SFTP_HOST, Configuration.SFTP_USERNAME,
                       paramiko.RSAKey.from_private_key_file(Configuration.SFTP_KEY))
-            self.log.info('Uploaded results for %s'%test)
+            self.log.info('Uploaded results for %s', test)
             test.update(result=result,
                         logs_url='http://%s/'%result_path,
                         report_url='http://%s/'%result_path,
@@ -120,7 +120,7 @@ class TestQueue():
         self.log.info('%d tests ready to be posted...'%len(allTests))
         for test in allTests:
             if test.result.find('Aborted') == 0:
-                logging.info('Not voting on aborted test %s (%s)'%(test, test.result))
+                logging.info('Not voting on aborted test %s (%s)', (test, test.result))
                 test.update(state=constants.FINISHED)
                 continue
                 
@@ -128,7 +128,7 @@ class TestQueue():
                 message=Configuration.VOTE_MESSAGE%{'result':test.result, 'report': test.report_url, 'log':test.logs_url}
                 vote_num = "+1" if test.result == 'Passed' else "-1"
                 if ((vote_num == '+1') or (not Configuration.VOTE_PASSED_ONLY)):
-                    logging.info('Posting results for %s (%s)'%(test, test.result))
+                    logging.info('Posting results for %s (%s)', (test, test.result))
                     vote(test.commit_id, vote_num, message)
                     test.update(state=constants.FINISHED)
 
