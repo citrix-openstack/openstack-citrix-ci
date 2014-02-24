@@ -12,6 +12,7 @@ setup(
             'osci-check-connection = osci.scripts:check_connection',
             'osci-run-tests = osci.scripts:run_tests',
             'osci-manage = osci.manage:main',
+            'osci-watch-gerrit = osci.scripts:watch_gerrit',
         ]
     }
 )

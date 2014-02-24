@@ -1,4 +1,5 @@
 import unittest
+import  mock
 
 from osci import commands
 from osci import logserver
@@ -135,3 +136,17 @@ class TestRunTests(unittest.TestCase):
             ],
             cmd.executor.executed_commands
         )
+
+
+class TestWatchGerrit(unittest.TestCase):
+    def test_fake_gerrit_is_used(self):
+        cmd = commands.WatchGerrit()
+        self.assertEquals('FakeClient', cmd.gerrit_client.__class__.__name__)
+
+    def test_get_envent(self):
+        cmd = commands.WatchGerrit()
+        cmd.gerrit_client.fake_insert_event('EVENT')
+        self.assertEquals('EVENT', cmd.get_event())
+
+    def test_filter_event(self):
+        cmd = commands.WatchGerrit()

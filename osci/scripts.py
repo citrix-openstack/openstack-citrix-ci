@@ -34,3 +34,7 @@ def check_connection():
 
 def run_tests():
     sys.exit(run_command(commands.RunTests))
+
+
+def watch_gerrit():
+    sys.exit(run_command(commands.WatchGerrit))

@@ -3,6 +3,7 @@ from osci import executor
 from osci import logserver
 from osci import instructions
 from osci import environment
+from osci import gerrit
 
 
 class GetDom0Logs(object):
@@ -104,3 +105,14 @@ class RunTests(object):
                 environment.get_environment(self.change_ref)
                 + instructions.execute_test_runner())
         )
+
+
+class WatchGerrit(object):
+    def __init__(self):
+        self.gerrit_client = gerrit.FakeClient()
+
+    def get_event(self):
+        return self.gerrit_client.get_event()
+
+    def __call__(self):
+        pass
