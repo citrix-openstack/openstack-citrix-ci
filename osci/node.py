@@ -1,6 +1,6 @@
-from ctxosci import server
-from ctxosci import executor
-from ctxosci import common_ssh_options
+from osci import server
+from osci import executor
+from osci import common_ssh_options
 
 
 class Node(server.Server):

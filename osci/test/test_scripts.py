@@ -3,7 +3,7 @@ import mock
 
 from collections import namedtuple
 
-from ctxosci import scripts
+from osci import scripts
 
 
 class Command(object):
@@ -53,8 +53,8 @@ class SomeArgs(object):
 class TestRunCommand(unittest.TestCase):
     def setUp(self):
         self.patchers = [
-            mock.patch('ctxosci.scripts.setup_logging'),
-            mock.patch('ctxosci.scripts.get_parser_for')
+            mock.patch('osci.scripts.setup_logging'),
+            mock.patch('osci.scripts.get_parser_for')
         ]
         [patcher.start() for patcher in self.patchers]
 

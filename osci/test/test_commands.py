@@ -1,11 +1,11 @@
 import unittest
 
-from ctxosci import commands
-from ctxosci import logserver
-from ctxosci import node
-from ctxosci import executor
-from ctxosci import instructions
-from ctxosci import environment
+from osci import commands
+from osci import logserver
+from osci import node
+from osci import executor
+from osci import instructions
+from osci import environment
 
 
 COMMON_SSH_OPTS=(

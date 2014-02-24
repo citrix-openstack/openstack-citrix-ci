@@ -1,7 +1,7 @@
 import unittest
 import textwrap
 
-from ctxosci import environment
+from osci import environment
 
 
 class TestEnvironment(unittest.TestCase):

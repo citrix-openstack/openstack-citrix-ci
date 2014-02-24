@@ -1,7 +1,7 @@
 import sys
 import argparse
 import logging
-from ctxosci import commands
+from osci import commands
 
 
 def get_parser_for(command):

@@ -1,4 +1,4 @@
-from ctxosci import server
+from osci import server
 
 
 class Logserver(server.Server):

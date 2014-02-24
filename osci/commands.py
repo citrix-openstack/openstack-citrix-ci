@@ -1,8 +1,8 @@
-from ctxosci import node
-from ctxosci import executor
-from ctxosci import logserver
-from ctxosci import instructions
-from ctxosci import environment
+from osci import node
+from osci import executor
+from osci import logserver
+from osci import instructions
+from osci import environment
 
 
 class GetDom0Logs(object):

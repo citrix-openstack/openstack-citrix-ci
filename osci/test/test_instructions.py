@@ -1,6 +1,6 @@
 import unittest
 
-from ctxosci import instructions
+from osci import instructions
 
 
 class TestCheckOutTestRunner(unittest.TestCase):

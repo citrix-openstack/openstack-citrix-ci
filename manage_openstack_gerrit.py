@@ -26,8 +26,8 @@ import Queue
 import paramiko
 import MySQLdb
 from nodepool import nodedb, nodepool
-from ctxosci import environment
-from ctxosci import instructions
+from osci import environment
+from osci import instructions
 
 from prettytable import PrettyTable
 

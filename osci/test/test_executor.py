@@ -1,6 +1,6 @@
 import unittest
 
-from ctxosci import executor
+from osci import executor
 
 
 class TestExecutorFactory(unittest.TestCase):

@@ -1,6 +1,6 @@
 import unittest
 
-from ctxosci import node
+from osci import node
 
 
 class TestNode(unittest.TestCase):

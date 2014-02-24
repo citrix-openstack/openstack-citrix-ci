@@ -1,6 +1,6 @@
 import unittest
-from ctxosci import server
-from ctxosci import common_ssh_options
+from osci import server
+from osci import common_ssh_options
 
 
 class Server(server.Server):
