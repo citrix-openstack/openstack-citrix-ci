@@ -30,7 +30,7 @@ from osci import instructions
 from osci.config import Configuration
 from osci.testqueue import TestQueue
 from osci import constants
-
+from osci.test import Test
 from prettytable import PrettyTable
 
 
