@@ -3,11 +3,11 @@
 TOP_DIR=$(cd $(dirname "$0") && pwd)
 
 date > /tmp/current_queue.txt
-$TOP_DIR/manage_openstack_gerrit.py --list --states Running,Queued >> /tmp/current_queue.txt
+osci-manage --list --states Running,Queued >> /tmp/current_queue.txt
 date > /tmp/recent_finished.txt
-$TOP_DIR/manage_openstack_gerrit.py --list --states Collected,Finished --recent 24 >> /tmp/recent_finished.txt
+osci-manage --list --states Collected,Finished --recent 24 >> /tmp/recent_finished.txt
 date > /tmp/all_failures.txt
-$TOP_DIR/manage_openstack_gerrit.py --failures >> /tmp/all_failures.txt
+osci-manage --failures >> /tmp/all_failures.txt
 
 key=`awk '/SFTP_KEY/{print $3}' osci/config.py | tr -d "'" | tr -d '"'`
 
