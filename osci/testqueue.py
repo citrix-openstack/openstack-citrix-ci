@@ -120,15 +120,19 @@ class TestQueue():
         self.log.info('%d tests ready to be posted...'%len(allTests))
         for test in allTests:
             if test.result.find('Aborted') == 0:
-                logging.info('Not voting on aborted test %s (%s)', (test, test.result))
+                logging.info('Not voting on aborted test %s (%s)',
+                             (test, test.result))
                 test.update(state=constants.FINISHED)
                 continue
                 
             if Configuration.VOTE:
-                message=Configuration.VOTE_MESSAGE%{'result':test.result, 'report': test.report_url, 'log':test.logs_url}
+                message = Configuration.VOTE_MESSAGE % {'result':test.result,
+                                                        'report': test.report_url,
+                                                        'log':test.logs_url}
                 vote_num = "+1" if test.result == 'Passed' else "-1"
                 if ((vote_num == '+1') or (not Configuration.VOTE_PASSED_ONLY)):
-                    logging.info('Posting results for %s (%s)', (test, test.result))
+                    logging.info('Posting results for %s (%s)',
+                                 (test, test.result))
                     vote(test.commit_id, vote_num, message)
                     test.update(state=constants.FINISHED)
 

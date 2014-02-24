@@ -68,7 +68,7 @@ def execute_command(command, delimiter=' ', silent=False, return_streams=False):
     command_as_array = command.split(delimiter)
     if not silent:
         logging.debug("Executing command: %s", command_as_array) 
-    p = subprocess.Popen(command_as_array,stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    p = subprocess.Popen(command_as_array, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     output, errors = p.communicate()
     if p.returncode != 0:
         if not silent:
@@ -113,7 +113,7 @@ def vote(commitid, vote_num, message):
     if Configuration.VOTE_SERVICE_ACCOUNT:
         vote_cmd = vote_cmd + "$--verified=" + vote_num
     vote_cmd = vote_cmd + "$" + commitid
-    is_executed = execute_command(vote_cmd,'$')
+    is_executed = execute_command(vote_cmd, '$')
     if not is_executed:
         logging.error("Error: Could not vote. Voting failed for change: " + commitid)
     else:

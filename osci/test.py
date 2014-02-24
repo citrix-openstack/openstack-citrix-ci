@@ -31,20 +31,20 @@ class Test():
     def fromRecord(cls, record):
         retVal = Test()
         i = 0
-        retVal.project_name=record[i]; i+=1
-        retVal.change_num=record[i]; i+=1
-        retVal.change_ref=record[i]; i+=1
-        retVal.state=record[i]; i+=1
-        retVal.created=record[i]; i+=1
-        retVal.commit_id=record[i]; i+=1
-        retVal.node_id=record[i]; i+=1
-        retVal.node_ip=record[i]; i+=1
-        retVal.result=record[i]; i+=1
-        retVal.logs_url=record[i]; i+=1
-        retVal.report_url=record[i]; i+=1
-        retVal.updated=record[i]; i+=1
-        retVal.test_started=record[i]; i+=1
-        retVal.test_stopped=record[i]; i+=1
+        retVal.project_name = record[i]; i += 1
+        retVal.change_num = record[i]; i += 1
+        retVal.change_ref = record[i]; i += 1
+        retVal.state = record[i]; i += 1
+        retVal.created = record[i]; i += 1
+        retVal.commit_id = record[i]; i += 1
+        retVal.node_id = record[i]; i += 1
+        retVal.node_ip = record[i]; i += 1
+        retVal.result = record[i]; i += 1
+        retVal.logs_url = record[i]; i += 1
+        retVal.report_url = record[i]; i += 1
+        retVal.updated = record[i]; i += 1
+        retVal.test_started = record[i]; i += 1
+        retVal.test_stopped = record[i]; i += 1
 
         return retVal
 
@@ -156,10 +156,10 @@ class Test():
 
         self.update(node_id=node_id, node_ip=node_ip, result='')
 
-        cmd='echo %s >> run_tests_env' % ' '.join(instructions.check_out_testrunner())
+        cmd = 'echo %s >> run_tests_env' % ' '.join(instructions.check_out_testrunner())
         execute_command('ssh -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i %s %s@%s %s'%(
                 Configuration.NODE_KEY, Configuration.NODE_USERNAME, node_ip, cmd))
-        cmd='echo "%s %s" >> run_tests_env' % (
+        cmd = 'echo "%s %s" >> run_tests_env' % (
             ' '.join(environment.get_environment(self.change_ref)),
             ' '.join(instructions.execute_test_runner()))
         execute_command('ssh -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i %s %s@%s %s'%(

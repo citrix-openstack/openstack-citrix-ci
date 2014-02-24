@@ -27,5 +27,5 @@ class Configuration():
     VOTE_SERVICE_ACCOUNT = False
     VOTE_MESSAGE = "%(result)s using XenAPI driver with XenServer 6.2: Logs at %(log)s\n\n"+\
                    "Recheck supported; use \"citrix recheck\" to trigger only xenserver re-check.  XenServer CI contact: openstack@citrix.com."
-    REVIEW_REPO_NAME='review'
-    PROJECT_CONFIG=['openstack-dev/sandbox', 'openstack/nova', 'openstack/tempest', 'openstack-dev/devstack']
+    REVIEW_REPO_NAME = 'review'
+    PROJECT_CONFIG = ['openstack-dev/sandbox', 'openstack/nova', 'openstack/tempest', 'openstack-dev/devstack']
