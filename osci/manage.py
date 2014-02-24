@@ -1,6 +1,3 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-
 import subprocess
 
 from pygerrit.client import GerritClient
@@ -66,7 +63,7 @@ def check_for_change_ref(option, opt_str, value, parser):
         raise optparse.OptionValueError("can't use %s, Please provide --change_ref/-c before %s" % (opt_str, opt_str))
     setattr(parser.values, option.dest, value)
 
-def _main():
+def main():
     usage = "usage: %prog [options]"
     
     parser = optparse.OptionParser(usage=usage)
@@ -252,6 +249,3 @@ def _main():
     if errors.isSet():
         logging.error("Exited with error")
         return 1
-
-if __name__ == "__main__":
-    sys.exit(_main())
