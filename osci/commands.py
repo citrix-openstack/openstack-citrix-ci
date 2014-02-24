@@ -108,11 +108,21 @@ class RunTests(object):
 
 
 class WatchGerrit(object):
-    def __init__(self):
-        self.gerrit_client = gerrit.FakeClient()
+    def __init__(self, env=None):
+        self.gerrit_client = gerrit.FakeClient(env)
+        self.event_filter = gerrit.DummyFilter(True)
+
+    @classmethod
+    def parameters(cls):
+        return ['gerrit_host', 'gerrit_port', 'gerrit_username']
 
     def get_event(self):
         return self.gerrit_client.get_event()
+
+    def get_filtered_event(self):
+        event = self.get_event()
+        if self.event_filter.is_event_matching_criteria(event):
+            return event
 
     def __call__(self):
         pass

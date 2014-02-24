@@ -7,6 +7,7 @@ from osci import node
 from osci import executor
 from osci import instructions
 from osci import environment
+from osci import gerrit
 
 
 COMMON_SSH_OPTS=(
@@ -143,10 +144,36 @@ class TestWatchGerrit(unittest.TestCase):
         cmd = commands.WatchGerrit()
         self.assertEquals('FakeClient', cmd.gerrit_client.__class__.__name__)
 
-    def test_get_envent(self):
+    def test_passing_gerrit_parameters(self):
+        cmd = commands.WatchGerrit(dict(
+            gerrit_host='GHOST',
+            gerrit_port='GPORT',
+            gerrit_username='GUSER',
+        ))
+
+        self.assertEquals('GHOST', cmd.gerrit_client.host)
+        self.assertEquals('GPORT', cmd.gerrit_client.port)
+        self.assertEquals('GUSER', cmd.gerrit_client.user)
+
+    def test_get_event(self):
         cmd = commands.WatchGerrit()
         cmd.gerrit_client.fake_insert_event('EVENT')
         self.assertEquals('EVENT', cmd.get_event())
 
-    def test_filter_event(self):
+    def test_filtered_event_removes_non_matching(self):
         cmd = commands.WatchGerrit()
+        cmd.event_filter = gerrit.DummyFilter(False)
+        cmd.gerrit_client.fake_insert_event('EVENT')
+        self.assertEquals(None, cmd.get_filtered_event())
+
+    def test_filter_event_if_no_event_available(self):
+        cmd = commands.WatchGerrit()
+        cmd.event_filter = gerrit.DummyFilter(False)
+        self.assertEquals(None, cmd.get_filtered_event())
+
+    def test_parameters(self):
+        cmd = commands.WatchGerrit()
+        self.assertEquals(
+            ['gerrit_host', 'gerrit_port', 'gerrit_username'],
+            cmd.parameters()
+        )

@@ -47,8 +47,13 @@ class TestCommentMatcher(unittest.TestCase):
 
         matcher.match.assert_called_once_with('COMMENT')
 
+    def test_none_event(self):
+        event_matcher = gerrit.CommentMatcher(None)
+        self.assertFalse(event_matcher.is_event_matching_criteria(None))
 
-class TestPatchsetMatcher(unittest.TestCase):
+
+
+class TestChangeMatcher(unittest.TestCase):
     def test_good_project_good_branch(self):
         event_matcher = gerrit.ChangeMatcher(['project'])
 
@@ -70,6 +75,13 @@ class TestPatchsetMatcher(unittest.TestCase):
             event_matcher.is_event_matching_criteria(
                 PatchesCreatedEvent(project='blah')))
 
+    def test_none_event(self):
+        event_matcher = gerrit.ChangeMatcher(['project'])
+
+        self.assertFalse(
+            event_matcher.is_event_matching_criteria(
+                None))
+
 
 class SomeClass(object):
     pass
@@ -85,6 +97,12 @@ class TestEventTypeFilter(unittest.TestCase):
         event_filter = gerrit.EventTypeFilter(dict)
 
         self.assertTrue(event_filter.is_event_matching_criteria(dict()))
+
+    def test_note_event(self):
+        event_filter = gerrit.EventTypeFilter(dict)
+
+        self.assertFalse(event_filter.is_event_matching_criteria(None))
+
 
 
 class TestAndFilter(unittest.TestCase):
