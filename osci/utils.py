@@ -51,7 +51,7 @@ def copy_logs(source_masks, target_dir, host, username, key, upload=True):
                     continue
                 source_file = os.path.join(source_dir, filename)
                 if S_ISREG(source.stat(source_file).st_mode):
-                    logger.info('Copying %s to %s', (source_file, target_dir))
+                    logger.info('Copying %s to %s', source_file, target_dir)
                     try:
                         sftp_method(os.path.join(source_dir, filename),
                                     os.path.join(target_dir, filename))
@@ -74,7 +74,7 @@ def execute_command(command, delimiter=' ', silent=False, return_streams=False):
         if not silent:
             logging.error("Error: Could not execute command. "+\
                           "Failed with code %d and errors: %s",
-                          (p.returncode, errors))
+                          p.returncode, errors)
     if not silent:
         logging.debug("Output:%s", output)
     
@@ -94,7 +94,7 @@ def getSSHObject(ip, username, key_filename):
         return ssh
     except Exception, e:
         logging.error('Unable to connect to %s using %s and key %s',
-                      (ip, username, key_filename))
+                      ip, username, key_filename)
         logging.exception(e)
         return None
 
@@ -102,10 +102,10 @@ def vote(commitid, vote_num, message):
     #ssh -p 29418 review.example.com gerrit review -m '"Test failed on MegaTestSystem <http://megatestsystem.org/tests/1234>"'
     # --verified=-1 c0ff33
     logging.info("Going to vote commitid %s, vote %s, message %s",
-                 (commitid, vote_num, message))
+                 commitid, vote_num, message)
     if not Configuration.VOTE_NEGATIVE and vote_num == "-1":
         logging.error("Did not vote -1 for commitid %s, vote %s",
-                      (commitid, vote_num))
+                      commitid, vote_num)
         vote_num = "0"
         message += "\n\nNegative vote suppressed"
     vote_cmd = "ssh$-q$-o$BatchMode=yes$-o$UserKnownHostsFile=/dev/null$-o$StrictHostKeyChecking=no$-p$%d$%s@%s$gerrit$review"%(Configuration.GERRIT_PORT, Configuration.GERRIT_USERNAME, Configuration.GERRIT_HOST)
@@ -115,7 +115,7 @@ def vote(commitid, vote_num, message):
     vote_cmd = vote_cmd + "$" + commitid
     is_executed = execute_command(vote_cmd, '$')
     if not is_executed:
-        logging.error("Error: Could not vote. Voting failed for change: " + commitid)
+        logging.error("Error: Could not vote. Voting failed for change %s ", commitid)
     else:
-        logging.info("Successfully voted " + str(vote_num) + " for change: " + commitid)
+        logging.info("Successfully voted %s for change %s", vote_num, commitid)
 

@@ -86,7 +86,7 @@ class TestQueue():
             code, fail_stdout, stderr = execute_command('grep$... FAIL$%s/run_tests.log'%tmpPath,
                                                         delimiter='$',
                                                         return_streams=True)
-            self.log.info('Result: %s (Err: %s)', (fail_stdout, stderr))
+            self.log.info('Result: %s (Err: %s)', fail_stdout, stderr)
                 
             self.log.info('Copying logs for %s', test)
             result_path = os.path.join(Configuration.SFTP_COMMON, test.change_ref)
@@ -121,7 +121,7 @@ class TestQueue():
         for test in allTests:
             if test.result.find('Aborted') == 0:
                 logging.info('Not voting on aborted test %s (%s)',
-                             (test, test.result))
+                             test, test.result)
                 test.update(state=constants.FINISHED)
                 continue
                 
@@ -132,7 +132,7 @@ class TestQueue():
                 vote_num = "+1" if test.result == 'Passed' else "-1"
                 if ((vote_num == '+1') or (not Configuration.VOTE_PASSED_ONLY)):
                     logging.info('Posting results for %s (%s)',
-                                 (test, test.result))
+                                 test, test.result)
                     vote(test.commit_id, vote_num, message)
                     test.update(state=constants.FINISHED)
 
