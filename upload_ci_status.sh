@@ -3,7 +3,7 @@
 TOP_DIR=$(cd $(dirname "$0") && pwd)
 
 date > /tmp/current_queue.txt
-/usr/local/bin/osci-manage --list --states Running,Queued >> /tmp/current_queue.txt
+/usr/local/bin/osci-manage --list --states Running,Queued,Collecting >> /tmp/current_queue.txt
 date > /tmp/recent_finished.txt
 /usr/local/bin/osci-manage --list --states Collected,Finished --recent 24 >> /tmp/recent_finished.txt
 date > /tmp/all_failures.txt
