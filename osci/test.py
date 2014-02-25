@@ -222,6 +222,7 @@ class Test():
             return stdout.splitlines()[0]
         except Exception, e:
             self.log.exception(e)
+            return "Aborted: Failed to copy logs"
 
     def __repr__(self):
         return "%(project_name)s/%(change_num)s state:%(state)s" %self
