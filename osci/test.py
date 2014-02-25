@@ -7,7 +7,7 @@ import paramiko
 from osci import constants
 from osci.config import Configuration
 from osci import instructions
-from osci.utils import execute_command, copy_logs, getSSHObject
+from osci import utils
 from osci import environment
 
 class Test():
@@ -147,7 +147,7 @@ class Test():
             return
         self.log.info("Running test for %s on %s/%s"%(self, node_id, node_ip))
 
-        ssh = getSSHObject(node_ip, Configuration.NODE_USERNAME, Configuration.NODE_KEY)
+        ssh = utils.getSSHObject(node_ip, Configuration.NODE_USERNAME, Configuration.NODE_KEY)
         if not ssh:
             self.log.error('Failed to get SSH object for node %s/%s.  Deleting node.'%(node_id, node_ip))
             nodepool.deleteNode(node_id)
@@ -157,16 +157,16 @@ class Test():
         self.update(node_id=node_id, node_ip=node_ip, result='')
 
         cmd = 'echo %s >> run_tests_env' % ' '.join(instructions.check_out_testrunner())
-        execute_command('ssh -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i %s %s@%s %s'%(
+        utils.execute_command('ssh -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i %s %s@%s %s'%(
                 Configuration.NODE_KEY, Configuration.NODE_USERNAME, node_ip, cmd))
         cmd = 'echo "%s %s" >> run_tests_env' % (
             ' '.join(environment.get_environment(self.change_ref)),
             ' '.join(instructions.execute_test_runner()))
-        execute_command('ssh -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i %s %s@%s %s'%(
+        utils.execute_command('ssh -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i %s %s@%s %s'%(
                 Configuration.NODE_KEY, Configuration.NODE_USERNAME, node_ip, cmd))
         # TODO: For some reason invoking this immediately fails...
         time.sleep(5)
-        execute_command('ssh$-q$-o$BatchMode=yes$-o$UserKnownHostsFile=/dev/null$-o$StrictHostKeyChecking=no$-i$%s$%s@%s$nohup bash /home/jenkins/run_tests_env < /dev/null > run_tests.log 2>&1 &'%(
+        utils.execute_command('ssh$-q$-o$BatchMode=yes$-o$UserKnownHostsFile=/dev/null$-o$StrictHostKeyChecking=no$-i$%s$%s@%s$nohup bash /home/jenkins/run_tests_env < /dev/null > run_tests.log 2>&1 &'%(
                 Configuration.NODE_KEY, Configuration.NODE_USERNAME, node_ip), '$')
         self.update(state=constants.RUNNING)
         
@@ -188,7 +188,7 @@ class Test():
             return False
         
         try:
-            success = execute_command('ssh -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i %s %s@%s ps -p `cat /home/jenkins/run_tests.pid`'%(
+            success = utils.execute_command('ssh -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i %s %s@%s ps -p `cat /home/jenkins/run_tests.pid`'%(
                     Configuration.NODE_KEY, Configuration.NODE_USERNAME, self.node_ip), silent=True)
             self.log.info('Gate-is-running on job %s (%s) returned: %s'%(
                           self, self.node_ip, success))
@@ -203,12 +203,12 @@ class Test():
             self.log.error('Attempting to retrieve results for %s but no node IP address'%self)
             return "Aborted: No IP"
         try:
-            code, stdout, stderr = execute_command('ssh -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i %s %s@%s cat result.txt'%(
+            code, stdout, stderr = utils.execute_command('ssh -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i %s %s@%s cat result.txt'%(
                     Configuration.NODE_KEY, Configuration.NODE_USERNAME, self.node_ip), silent=True,
                                                    return_streams=True)
             self.log.info('Result: %s (Err: %s)'%(stdout, stderr))
             self.log.info('Downloading logs for %s'%self)
-            copy_logs(['/home/jenkins/workspace/testing/logs/*', '/home/jenkins/run_test*'], dest_path,
+            utils.copy_logs(['/home/jenkins/workspace/testing/logs/*', '/home/jenkins/run_test*'], dest_path,
                       self.node_ip, Configuration.NODE_USERNAME,
                       paramiko.RSAKey.from_private_key_file(Configuration.NODE_KEY),
                       upload=False)

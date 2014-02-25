@@ -77,7 +77,8 @@ def get_parser():
     return parser
 
 def main():
-    (options, _) = get_parser().parse_args()
+    parser = get_parser()
+    (options, _) = parser.parse_args()
     if options.change_ref and (not options.project or not options.commitid):
         parser.error('Can only use --change_ref with --project')
 
