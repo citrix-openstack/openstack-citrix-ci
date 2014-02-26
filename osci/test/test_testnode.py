@@ -145,3 +145,19 @@ class TestRunning(unittest.TestCase):
         
         mock_update.assert_called_with(result='Aborted: Exception checking for pid')
         self.assertEqual(1, mock_execute_command.call_count)
+
+    @mock.patch.object(Test, 'update')
+    @mock.patch.object(utils, 'execute_command')
+    def test_isRunning_happy_path(self, mock_execute_command, mock_update):
+        test = Test(change_num="change_num", project_name="project")
+        test.node_ip = 'ip'
+        delta = datetime.timedelta(seconds=350)
+        test.updated = datetime.datetime.now() - delta
+        
+        mock_execute_command.return_value = False
+        self.assertFalse(test.isRunning())
+        self.assertEqual(0, mock_update.call_count)
+
+        mock_execute_command.return_value = True
+        self.assertTrue(test.isRunning())
+        self.assertEqual(0, mock_update.call_count)
