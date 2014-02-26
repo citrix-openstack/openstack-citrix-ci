@@ -147,8 +147,7 @@ class Test():
             return
         self.log.info("Running test for %s on %s/%s"%(self, node_id, node_ip))
 
-        ssh = utils.getSSHObject(node_ip, Configuration.NODE_USERNAME, Configuration.NODE_KEY)
-        if not ssh:
+        if not utils.testSSH(node_ip, Configuration.NODE_USERNAME, Configuration.NODE_KEY):
             self.log.error('Failed to get SSH object for node %s/%s.  Deleting node.'%(node_id, node_ip))
             nodepool.deleteNode(node_id)
             self.update(node_id=0)

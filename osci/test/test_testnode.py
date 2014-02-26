@@ -101,7 +101,8 @@ class TestRun(unittest.TestCase):
 
         nodepool = mock.Mock()
         nodepool.getNode.return_value = ('new_node', 'ip')
-        mock_getSSHObject.return_value = 'ssh object'
+        ssh = mock.Mock()
+        mock_getSSHObject.return_value = ssh
 
         test.runTest(nodepool)
 
@@ -111,6 +112,7 @@ class TestRun(unittest.TestCase):
         update_call1 = mock.call(node_id='new_node', result='', node_ip='ip')
         update_call2 = mock.call(state=constants.RUNNING)
         mock_update.assert_has_calls([update_call1, update_call2])
+        ssh.close.assert_called()
 
 class TestRunning(unittest.TestCase):
     def test_isRunning_no_ip(self):
