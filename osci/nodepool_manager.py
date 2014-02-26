@@ -40,6 +40,8 @@ class NodePool():
         self.pool.reconfigureDatabase(config)
         self.pool.setConfig(config)
         self.image = image
+        
+    def startCleanupThread(self):
         self.deleteNodeThread = DeleteNodeThread(self.pool)
         self.deleteNodeThread.start()
 
@@ -58,5 +60,8 @@ class NodePool():
     def deleteNode(self, node_id):
         if not node_id:
             return
+        if self.deleteNodeThread is None:
+            self.log.info('Starting node cleanup thread')
+            self.startCleanupThread()
         self.log.info('Adding node %s to the list to delete'%node_id)
         DeleteNodeThread.deleteNodeQueue.put(node_id)

@@ -45,6 +45,8 @@ class TestQueue():
                      passwd=password)
         self.initDB(database_name)
         self.nodepool = NodePool(Configuration.NODEPOOL_IMAGE)
+
+    def startCleanupThread(self):
         self.collectResultsThread = CollectResultsThread(self)
         self.collectResultsThread.start()
         
@@ -111,8 +113,11 @@ class TestQueue():
             if test.isRunning():
                 continue
             
-            self.log.info('Tests for %s are done! Collecting'%test)
             test.update(state=constants.COLLECTING)
+            if self.collectResultsThread is None:
+                self.log.info('Starting collect thread')
+                self.startCleanupThread()
+            self.log.info('Tests for %s are done! Collecting'%test)
             CollectResultsThread.collectTests.put(test)
 
     def postResults(self):
