@@ -1,6 +1,7 @@
 import abc
 import logging
 
+from pygerrit import client
 from pygerrit import events
 
 
@@ -21,37 +22,57 @@ class Client(object):
         env = env or dict()
         self.fake_events = []
         self.host = env.get('gerrit_host')
-        self.port = env.get('gerrit_port')
+        self.port = int(env.get('gerrit_port', '29418'))
         self.user = env.get('gerrit_username')
 
     @abc.abstractmethod
-    def get_event(self):
+    def connect(self):
         pass
+
+    def get_event(self):
+        log.debug("Request for event")
+        event = self._get_event()
+        log.debug("Returning event [%s]", event)
+        return event
+
+    @abc.abstractmethod
+    def _get_event(self):
+        pass
+
 
 class FakeClient(Client):
     def __init__(self, env):
         super(FakeClient, self).__init__(env)
         self.fake_events = []
+        self.fake_connect_calls = []
+
+    def connect(self):
+        self.fake_connect_calls.append(self.connect)
 
     def fake_insert_event(self, event):
         self.fake_events.append(event)
 
-    def get_event(self):
-        event = None
-
+    def _get_event(self):
         if self.fake_events:
-            event = self.fake_events.pop(0)
-
-        log.debug("Event requested, returning [%s]", event)
-        return event
+            return self.fake_events.pop(0)
 
 
 class PyGerritClient(Client):
     def __init__(self, env):
         super(PyGerritClient, self).__init__(env)
+        self.impl = client.GerritClient(
+            host=self.host,
+            username=self.user,
+            port=self.port
+        )
 
-    def get_event(self):
-        raise NotImplementedError()
+    def connect(self):
+        version = self.impl.gerrit_version()
+        log.debug( "Connected to gerrit version [%s]", version)
+        self.impl.start_event_stream()
+
+    def _get_event(self):
+        return self.impl.get_event(block=False)
 
 
 class DummyFilter(object):

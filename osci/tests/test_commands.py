@@ -155,12 +155,12 @@ class TestWatchGerrit(unittest.TestCase):
     def test_passing_gerrit_parameters(self):
         cmd = commands.WatchGerrit(dict(
             gerrit_host='GHOST',
-            gerrit_port='GPORT',
+            gerrit_port='29418',
             gerrit_username='GUSER',
         ))
 
         self.assertEquals('GHOST', cmd.gerrit_client.host)
-        self.assertEquals('GPORT', cmd.gerrit_client.port)
+        self.assertEquals(29418, cmd.gerrit_client.port)
         self.assertEquals('GUSER', cmd.gerrit_client.user)
 
     def test_get_event(self):
@@ -217,6 +217,13 @@ class TestWatchGerritMainLoop(unittest.TestCase):
         cmd.sleep.side_effect = [True, True, False]
         cmd()
         self.assertEquals(3, len(cmd.sleep.mock_calls))
+
+    def test_call_connects(self):
+        cmd = self.cmd
+        cmd.sleep.return_value = False
+        cmd()
+        self.assertEquals(1,
+                          len(cmd.gerrit_client.fake_connect_calls))
 
     def test_call_runs_main(self):
         cmd = self.cmd

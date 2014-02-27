@@ -148,5 +148,6 @@ class WatchGerrit(object):
             self.consume_event(event)
 
     def __call__(self):
+        self.gerrit_client.connect()
         while self.sleep():
             self.do_event_handling()

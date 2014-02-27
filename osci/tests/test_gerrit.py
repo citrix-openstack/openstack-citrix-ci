@@ -92,12 +92,12 @@ class TestGerritClientFactory(unittest.TestCase):
         client = gerrit.get_client(dict(
             gerrit_client='pygerrit',
             gerrit_host='HOST',
-            gerrit_port='PORT',
+            gerrit_port='67',
             gerrit_username='USER',
             ))
 
         self.assertEquals('HOST', client.host)
-        self.assertEquals('PORT', client.port)
+        self.assertEquals(67, client.port)
         self.assertEquals('USER', client.user)
 
         self.assertEquals('PyGerritClient', client.__class__.__name__)
@@ -158,3 +158,41 @@ class TestOrFilter(unittest.TestCase):
                 gerrit.DummyFilter(False),
                 gerrit.DummyFilter(True)
             ]).is_event_matching_criteria('SOMETHING'))
+
+
+class TestPyGerritClient(unittest.TestCase):
+    @mock.patch('pygerrit.client.GerritClient')
+    def test_connect_creates_class(self, gerrit_client_class):
+        impl = gerrit_client_class.return_value = mock.Mock()
+
+        client = gerrit.PyGerritClient(dict(
+            gerrit_host='host',
+            gerrit_port=22,
+            gerrit_username='username'
+        ))
+
+        gerrit_client_class.assert_called_once_with(
+            host='host',
+            username='username',
+            port=22
+        )
+
+        self.assertEquals(impl, client.impl)
+
+    def test_connect_starts_stream(self):
+        client = gerrit.PyGerritClient(dict())
+
+        client.impl = mock.Mock()
+
+        client.connect()
+
+        client.impl.start_event_stream.assert_called_once_with()
+
+    def test_connect_gets_version(self):
+        client = gerrit.PyGerritClient(dict())
+
+        client.impl = mock.Mock()
+
+        client.connect()
+
+        client.impl.gerrit_version.assert_called_once_with()
