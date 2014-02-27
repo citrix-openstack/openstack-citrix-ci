@@ -1,3 +1,5 @@
+import time
+
 from osci import node
 from osci import executor
 from osci import logserver
@@ -109,10 +111,15 @@ class RunTests(object):
 
 
 class WatchGerrit(object):
+    DEFAULT_SLEEP_TIMEOUT = 5
+
     def __init__(self, env=None):
+        env = env or dict()
         self.gerrit_client = gerrit.get_client(env)
         self.event_filter = gerrit.DummyFilter(True)
         self.event_target = event_target.FakeTarget()
+        self.sleep_timeout = env.get(
+            'sleep_timeout', self.DEFAULT_SLEEP_TIMEOUT)
 
     @classmethod
     def parameters(cls):
@@ -132,7 +139,7 @@ class WatchGerrit(object):
         self.event_target.consume_event(event)
 
     def sleep(self):
-        raise NotImplementedError()
+        time.sleep(3)
 
     def do_event_handling(self):
         raise NotImplementedError()

@@ -226,3 +226,15 @@ class TestWatchGerritMainLoop(unittest.TestCase):
 
     def tearDown(self):
         [patcher.stop() for patcher in self.patchers]
+
+
+class TestSleep(unittest.TestCase):
+    @mock.patch('time.sleep')
+    def test_sleep_called(self, sleep):
+        cmd = commands.WatchGerrit(dict(sleep_timeout=3))
+        cmd.sleep()
+        sleep.assert_called_once_with(3)
+
+    def test_sleep_default_value(self):
+        cmd = commands.WatchGerrit()
+        self.assertEquals(5, cmd.sleep_timeout)
