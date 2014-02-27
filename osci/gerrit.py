@@ -1,4 +1,10 @@
+import abc
+import logging
+
 from pygerrit import events
+
+
+log = logging.getLogger(__name__)
 
 
 class EventFilter(object):
@@ -9,6 +15,8 @@ class EventFilter(object):
 
 
 class Client(object):
+    __metaclass__ = abc.ABCMeta
+
     def __init__(self, env):
         env = env or dict()
         self.fake_events = []
@@ -16,6 +24,9 @@ class Client(object):
         self.port = env.get('gerrit_port')
         self.user = env.get('gerrit_username')
 
+    @abc.abstractmethod
+    def get_event(self):
+        pass
 
 class FakeClient(Client):
     def __init__(self, env):
@@ -26,13 +37,21 @@ class FakeClient(Client):
         self.fake_events.append(event)
 
     def get_event(self):
+        event = None
+
         if self.fake_events:
-            return self.fake_events.pop(0)
+            event = self.fake_events.pop(0)
+
+        log.debug("Event requested, returning [%s]", event)
+        return event
 
 
 class PyGerritClient(Client):
     def __init__(self, env):
         super(PyGerritClient, self).__init__(env)
+
+    def get_event(self):
+        raise NotImplementedError()
 
 
 class DummyFilter(object):
