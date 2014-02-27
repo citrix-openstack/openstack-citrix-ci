@@ -131,5 +131,12 @@ class WatchGerrit(object):
     def consume_event(self, event):
         self.event_target.consume_event(event)
 
+    def sleep(self):
+        raise NotImplementedError()
+
+    def do_event_handling(self):
+        raise NotImplementedError()
+
     def __call__(self):
-        pass
+        while self.sleep():
+            self.do_event_handling()

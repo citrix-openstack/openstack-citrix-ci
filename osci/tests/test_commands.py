@@ -196,3 +196,33 @@ class TestWatchGerrit(unittest.TestCase):
         self.assertEquals(
             ['EVENT'], cmd.event_target.fake_events
         )
+
+class TestWatchGerritMainLoop(unittest.TestCase):
+    def setUp(self):
+        self.cmd = cmd = commands.WatchGerrit()
+        self.patchers = [
+            mock.patch.object(cmd, 'sleep'),
+            mock.patch.object(cmd, 'do_event_handling'),
+        ]
+        [patcher.start() for patcher in self.patchers]
+
+    def test_call_quits_if_cannot_sleep(self):
+        cmd = self.cmd
+        cmd.sleep.return_value = False
+        cmd()
+        cmd.sleep.assert_called_once_with()
+
+    def test_call_loop_runs_until_sleep_fails(self):
+        cmd = self.cmd
+        cmd.sleep.side_effect = [True, True, False]
+        cmd()
+        self.assertEquals(3, len(cmd.sleep.mock_calls))
+
+    def test_call_runs_main(self):
+        cmd = self.cmd
+        cmd.sleep.side_effect = [True, False]
+        cmd()
+        cmd.do_event_handling.assert_called_once_with()
+
+    def tearDown(self):
+        [patcher.stop() for patcher in self.patchers]
