@@ -140,6 +140,7 @@ class WatchGerrit(object):
 
     def sleep(self):
         time.sleep(3)
+        return True
 
     def do_event_handling(self):
         event = self.get_filtered_event()

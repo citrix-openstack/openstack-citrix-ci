@@ -239,6 +239,12 @@ class TestSleep(unittest.TestCase):
         cmd = commands.WatchGerrit()
         self.assertEquals(5, cmd.sleep_timeout)
 
+    @mock.patch('time.sleep')
+    def test_sleep_returns_true(self, sleep):
+        cmd = commands.WatchGerrit()
+        result = cmd.sleep()
+        self.assertTrue(result)
+
 
 class TestEventHandling(unittest.TestCase):
     def setUp(self):
