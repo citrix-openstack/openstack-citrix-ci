@@ -238,3 +238,31 @@ class TestSleep(unittest.TestCase):
     def test_sleep_default_value(self):
         cmd = commands.WatchGerrit()
         self.assertEquals(5, cmd.sleep_timeout)
+
+
+class TestEventHandling(unittest.TestCase):
+    def setUp(self):
+        self.cmd = cmd = commands.WatchGerrit()
+        self.patchers = [
+            mock.patch.object(cmd, 'get_filtered_event'),
+            mock.patch.object(cmd, 'consume_event'),
+            ]
+        [patcher.start() for patcher in self.patchers]
+
+    def test_event_handling(self):
+        cmd = self.cmd
+        cmd.get_filtered_event.return_value = 'EVENT'
+
+        cmd.do_event_handling()
+
+        cmd.consume_event.assert_called_once_with('EVENT')
+        cmd.get_filtered_event.assert_called_once_with()
+
+    def test_event_handling_no_event(self):
+        cmd = self.cmd
+        cmd.get_filtered_event.return_value = None
+        cmd.do_event_handling()
+        self.assertEquals([], cmd.consume_event.mock_calls)
+
+    def tearDown(self):
+        [patcher.stop() for patcher in self.patchers]

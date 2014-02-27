@@ -142,7 +142,9 @@ class WatchGerrit(object):
         time.sleep(3)
 
     def do_event_handling(self):
-        raise NotImplementedError()
+        event = self.get_filtered_event()
+        if event:
+            self.consume_event(event)
 
     def __call__(self):
         while self.sleep():
