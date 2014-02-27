@@ -8,7 +8,7 @@ class EventFilter(object):
         return self._is_event_matching_criteria(event)
 
 
-class FakeClient(object):
+class Client(object):
     def __init__(self, env):
         env = env or dict()
         self.fake_events = []
@@ -16,12 +16,23 @@ class FakeClient(object):
         self.port = env.get('gerrit_port')
         self.user = env.get('gerrit_username')
 
+
+class FakeClient(Client):
+    def __init__(self, env):
+        super(FakeClient, self).__init__(env)
+        self.fake_events = []
+
     def fake_insert_event(self, event):
         self.fake_events.append(event)
 
     def get_event(self):
         if self.fake_events:
             return self.fake_events.pop(0)
+
+
+class PyGerritClient(Client):
+    def __init__(self, env):
+        super(PyGerritClient, self).__init__(env)
 
 
 class DummyFilter(object):
@@ -96,3 +107,9 @@ def get_filter(projects, comment_re):
             ChangeMatcher(projects),
         ])
     ])
+
+
+def get_client(env):
+    if env and 'pygerrit' == env.get('gerrit_client'):
+        return PyGerritClient(env)
+    return FakeClient(env)

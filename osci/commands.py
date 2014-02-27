@@ -109,7 +109,7 @@ class RunTests(object):
 
 class WatchGerrit(object):
     def __init__(self, env=None):
-        self.gerrit_client = gerrit.FakeClient(env)
+        self.gerrit_client = gerrit.get_client(env)
         self.event_filter = gerrit.DummyFilter(True)
 
     @classmethod

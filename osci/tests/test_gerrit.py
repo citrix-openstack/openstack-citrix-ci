@@ -87,6 +87,22 @@ class SomeClass(object):
     pass
 
 
+class TestGerritClientFactory(unittest.TestCase):
+    def test_create_client(self):
+        client = gerrit.get_client(dict(
+            gerrit_client='pygerrit',
+            gerrit_host='HOST',
+            gerrit_port='PORT',
+            gerrit_username='USER',
+            ))
+
+        self.assertEquals('HOST', client.host)
+        self.assertEquals('PORT', client.port)
+        self.assertEquals('USER', client.user)
+
+        self.assertEquals('PyGerritClient', client.__class__.__name__)
+
+
 class TestEventTypeFilter(unittest.TestCase):
     def test_class_filtering_fail(self):
         event_filter = gerrit.EventTypeFilter(SomeClass)
@@ -142,5 +158,3 @@ class TestOrFilter(unittest.TestCase):
                 gerrit.DummyFilter(False),
                 gerrit.DummyFilter(True)
             ]).is_event_matching_criteria('SOMETHING'))
-
-

@@ -144,6 +144,12 @@ class TestWatchGerrit(unittest.TestCase):
         cmd = commands.WatchGerrit()
         self.assertEquals('FakeClient', cmd.gerrit_client.__class__.__name__)
 
+    @mock.patch('osci.gerrit.get_client')
+    def test_gerrit_client_factory_called(self, get_client):
+        get_client.return_value = 'Client'
+        cmd = commands.WatchGerrit()
+        self.assertEquals('Client', cmd.gerrit_client)
+
     def test_passing_gerrit_parameters(self):
         cmd = commands.WatchGerrit(dict(
             gerrit_host='GHOST',
