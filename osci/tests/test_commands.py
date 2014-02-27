@@ -188,3 +188,11 @@ class TestWatchGerrit(unittest.TestCase):
             ],
             cmd.parameters()
         )
+
+    def test_consume_event(self):
+        cmd = commands.WatchGerrit()
+        cmd.consume_event('EVENT')
+
+        self.assertEquals(
+            ['EVENT'], cmd.event_target.fake_events
+        )

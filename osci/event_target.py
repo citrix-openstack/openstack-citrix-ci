@@ -1,6 +1,11 @@
 class EventTarget(object):
-    pass
+    def consume_event(self, event):
+        pass
 
 
 class FakeTarget(EventTarget):
-    pass
+    def __init__(self):
+        self.fake_events = []
+
+    def consume_event(self, event):
+        self.fake_events.append(event)

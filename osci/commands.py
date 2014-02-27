@@ -128,5 +128,8 @@ class WatchGerrit(object):
         if self.event_filter.is_event_matching_criteria(event):
             return event
 
+    def consume_event(self, event):
+        self.event_target.consume_event(event)
+
     def __call__(self):
         pass
