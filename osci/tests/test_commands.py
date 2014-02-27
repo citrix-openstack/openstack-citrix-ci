@@ -2,8 +2,6 @@ import unittest
 import  mock
 
 from osci import commands
-from osci import logserver
-from osci import node
 from osci import executor
 from osci import instructions
 from osci import environment
@@ -149,6 +147,10 @@ class TestWatchGerrit(unittest.TestCase):
         get_client.return_value = 'Client'
         cmd = commands.WatchGerrit()
         self.assertEquals('Client', cmd.gerrit_client)
+
+    def test_event_target(self):
+        cmd = commands.WatchGerrit()
+        self.assertEquals('FakeTarget', cmd.event_target.__class__.__name__)
 
     def test_passing_gerrit_parameters(self):
         cmd = commands.WatchGerrit(dict(

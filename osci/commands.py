@@ -4,6 +4,7 @@ from osci import logserver
 from osci import instructions
 from osci import environment
 from osci import gerrit
+from osci import event_target
 
 
 class GetDom0Logs(object):
@@ -111,6 +112,7 @@ class WatchGerrit(object):
     def __init__(self, env=None):
         self.gerrit_client = gerrit.get_client(env)
         self.event_filter = gerrit.DummyFilter(True)
+        self.event_target = event_target.FakeTarget()
 
     @classmethod
     def parameters(cls):
