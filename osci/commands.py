@@ -114,7 +114,8 @@ class WatchGerrit(object):
 
     @classmethod
     def parameters(cls):
-        return ['gerrit_host', 'gerrit_port', 'gerrit_username']
+        return [
+            'gerrit_client', 'gerrit_host', 'gerrit_port', 'gerrit_username']
 
     def get_event(self):
         return self.gerrit_client.get_event()
