@@ -1,5 +1,6 @@
 import logging
 import optparse
+import re
 import time
 
 from prettytable import PrettyTable
@@ -17,7 +18,8 @@ from osci.test import Test
 def is_event_matching_criteria(event):
     if isinstance(event, CommentAddedEvent):
         comment = event.comment
-        if not Configuration.RECHECK_REGEXP.match(comment):
+        comment_regexp = re.compile(Configuration().RECHECK_REGEXP, re.IGNORECASE)
+        if not comment_regexp.match(comment):
             return False
         logging.debug("Comment matched: %s", comment)
     elif not isinstance(event, PatchsetCreatedEvent):
@@ -29,7 +31,7 @@ def is_event_matching_criteria(event):
     return False
 
 def is_project_configured(submitted_project):
-    return submitted_project in Configuration.PROJECT_CONFIG
+    return submitted_project in Configuration().PROJECT_CONFIG.split(',')
 
 def queue_event(queue, event):
     logging.info("patchset values : %s", event)
@@ -92,8 +94,8 @@ def main():
                         'requests.packages.urllib3.connectionpool']:
         logging.getLogger(logger_name).setLevel(logging.WARNING)
 
-    queue = TestQueue(Configuration.MYSQL_URL, Configuration.MYSQL_USERNAME,
-                      Configuration.MYSQL_PASSWORD, Configuration.MYSQL_DB)
+    queue = TestQueue(Configuration().MYSQL_URL, Configuration().MYSQL_USERNAME,
+                      Configuration().MYSQL_PASSWORD, Configuration().MYSQL_DB)
 
 
     if options.show:
@@ -118,7 +120,7 @@ def main():
 
     if options.change_ref:
         # Execute tests and vote
-        if options.project not in Configuration.PROJECT_CONFIG:
+        if not is_project_configured(options.project):
             logging.info("Project specified does not match criteria")
             return
         queue.addTest(options.change_ref, options.project, options.commitid)
@@ -203,14 +205,14 @@ def main():
     # Starting the loop for listening to Gerrit events
     try:
         logging.info("Connecting to gerrit host %s",
-                     Configuration.GERRIT_HOST)
+                     Configuration().GERRIT_HOST)
         logging.info("Connecting to gerrit username %s",
-                     Configuration.GERRIT_USERNAME)
+                     Configuration().GERRIT_USERNAME)
         logging.info("Connecting to gerrit port %d",
-                     Configuration.GERRIT_PORT)
-        gerrit = GerritClient(host=Configuration.GERRIT_HOST,
-                              username=Configuration.GERRIT_USERNAME,
-                              port=Configuration.GERRIT_PORT)
+                     Configuration().GERRIT_PORT)
+        gerrit = GerritClient(host=Configuration().GERRIT_HOST,
+                              username=Configuration().GERRIT_USERNAME,
+                              port=Configuration().GERRIT_PORT)
         logging.info("Connected to Gerrit version [%s]",
                      gerrit.gerrit_version())
         gerrit.start_event_stream()
@@ -239,7 +241,7 @@ def main():
             except Exception, e:
                 logging.exception(e)
                 # Ignore exception and try again; keeps the app polling
-            time.sleep(Configuration.POLL)
+            time.sleep(int(Configuration().POLL))
     except KeyboardInterrupt:
         logging.info("Terminated by user")
     finally:

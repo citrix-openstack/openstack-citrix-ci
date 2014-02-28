@@ -107,14 +107,14 @@ def vote(commitid, vote_num, message):
     # --verified=-1 c0ff33
     logging.info("Going to vote commitid %s, vote %s, message %s",
                  commitid, vote_num, message)
-    if not Configuration.VOTE_NEGATIVE and vote_num == "-1":
+    if not Configuration().get_bool('VOTE_NEGATIVE') and vote_num == "-1":
         logging.error("Did not vote -1 for commitid %s, vote %s",
                       commitid, vote_num)
         vote_num = "0"
         message += "\n\nNegative vote suppressed"
-    vote_cmd = "ssh$-q$-o$BatchMode=yes$-o$UserKnownHostsFile=/dev/null$-o$StrictHostKeyChecking=no$-p$%d$%s@%s$gerrit$review"%(Configuration.GERRIT_PORT, Configuration.GERRIT_USERNAME, Configuration.GERRIT_HOST)
+    vote_cmd = "ssh$-q$-o$BatchMode=yes$-o$UserKnownHostsFile=/dev/null$-o$StrictHostKeyChecking=no$-p$%d$%s@%s$gerrit$review"%(Configuration().GERRIT_PORT, Configuration().GERRIT_USERNAME, Configuration().GERRIT_HOST)
     vote_cmd = vote_cmd + "$-m$'" + message + "'"
-    if Configuration.VOTE_SERVICE_ACCOUNT:
+    if Configuration().get_bool('VOTE_SERVICE_ACCOUNT'):
         vote_cmd = vote_cmd + "$--verified=" + vote_num
     vote_cmd = vote_cmd + "$" + commitid
     is_executed = execute_command(vote_cmd, '$')

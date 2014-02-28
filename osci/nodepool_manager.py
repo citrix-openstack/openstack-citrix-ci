@@ -35,7 +35,7 @@ class DeleteNodeThread(threading.Thread):
 class NodePool():
     log = logging.getLogger('citrix.nodepool')
     def __init__(self, image):
-        self.pool = nodepool.NodePool(Configuration.NODEPOOL_CONFIG)
+        self.pool = nodepool.NodePool(Configuration().NODEPOOL_CONFIG)
         config = self.pool.loadConfig()
         self.pool.reconfigureDatabase(config)
         self.pool.setConfig(config)

@@ -44,7 +44,7 @@ class TestQueue():
                      user=username,
                      passwd=password)
         self.initDB(database_name)
-        self.nodepool = NodePool(Configuration.NODEPOOL_IMAGE)
+        self.nodepool = NodePool(Configuration().NODEPOOL_IMAGE)
 
     def startCleanupThread(self):
         self.collectResultsThread = CollectResultsThread(self)
@@ -72,7 +72,7 @@ class TestQueue():
     def triggerJobs(self):
         allTests = Test.getAllWhere(self.db, state=constants.QUEUED)
         self.log.info('%d tests queued...'%len(allTests))
-        if not Configuration.RUN_TESTS:
+        if Configuration().get_bool('RUN_TESTS'):
             return
         for test in allTests:
             test.runTest(self.nodepool)
@@ -91,10 +91,10 @@ class TestQueue():
             self.log.info('Result: %s (Err: %s)', fail_stdout, stderr)
                 
             self.log.info('Copying logs for %s', test)
-            result_path = os.path.join(Configuration.SFTP_COMMON, test.change_ref)
-            copy_logs(['%s/*'%tmpPath], os.path.join(Configuration.SFTP_BASE, result_path),
-                      Configuration.SFTP_HOST, Configuration.SFTP_USERNAME,
-                      paramiko.RSAKey.from_private_key_file(Configuration.SFTP_KEY))
+            result_path = os.path.join(Configuration().SFTP_COMMON, test.change_ref)
+            copy_logs(['%s/*'%tmpPath], os.path.join(Configuration().SFTP_BASE, result_path),
+                      Configuration().SFTP_HOST, Configuration().SFTP_USERNAME,
+                      paramiko.RSAKey.from_private_key_file(Configuration().SFTP_KEY))
             self.log.info('Uploaded results for %s', test)
             test.update(result=result,
                         logs_url='http://%s/'%result_path,
@@ -130,12 +130,12 @@ class TestQueue():
                 test.update(state=constants.FINISHED)
                 continue
                 
-            if Configuration.VOTE:
-                message = Configuration.VOTE_MESSAGE % {'result':test.result,
+            if Configuration().get_bool('VOTE'):
+                message = Configuration().VOTE_MESSAGE % {'result':test.result,
                                                         'report': test.report_url,
                                                         'log':test.logs_url}
                 vote_num = "+1" if test.result == 'Passed' else "-1"
-                if ((vote_num == '+1') or (not Configuration.VOTE_PASSED_ONLY)):
+                if ((vote_num == '+1') or (not Configuration().get_bool('VOTE_PASSED_ONLY'))):
                     logging.info('Posting results for %s (%s)',
                                  test, test.result)
                     vote(test.commit_id, vote_num, message)

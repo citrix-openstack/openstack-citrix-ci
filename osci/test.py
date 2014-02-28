@@ -147,7 +147,7 @@ class Test():
             return
         self.log.info("Running test for %s on %s/%s"%(self, node_id, node_ip))
 
-        if not utils.testSSH(node_ip, Configuration.NODE_USERNAME, Configuration.NODE_KEY):
+        if not utils.testSSH(node_ip, Configuration().NODE_USERNAME, Configuration().NODE_KEY):
             self.log.error('Failed to get SSH object for node %s/%s.  Deleting node.'%(node_id, node_ip))
             nodepool.deleteNode(node_id)
             self.update(node_id=0)
@@ -157,16 +157,16 @@ class Test():
 
         cmd = 'echo %s >> run_tests_env' % ' '.join(instructions.check_out_testrunner())
         utils.execute_command('ssh -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i %s %s@%s %s'%(
-                Configuration.NODE_KEY, Configuration.NODE_USERNAME, node_ip, cmd))
+                Configuration().NODE_KEY, Configuration().NODE_USERNAME, node_ip, cmd))
         cmd = 'echo "%s %s" >> run_tests_env' % (
             ' '.join(environment.get_environment(self.change_ref)),
             ' '.join(instructions.execute_test_runner()))
         utils.execute_command('ssh -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i %s %s@%s %s'%(
-                Configuration.NODE_KEY, Configuration.NODE_USERNAME, node_ip, cmd))
-        # TODO: For some reason invoking this immediately fails...
+                Configuration().NODE_KEY, Configuration().NODE_USERNAME, node_ip, cmd))
+        # For some reason invoking this immediately fails...
         time.sleep(5)
         utils.execute_command('ssh$-q$-o$BatchMode=yes$-o$UserKnownHostsFile=/dev/null$-o$StrictHostKeyChecking=no$-i$%s$%s@%s$nohup bash /home/jenkins/run_tests_env < /dev/null > run_tests.log 2>&1 &'%(
-                Configuration.NODE_KEY, Configuration.NODE_USERNAME, node_ip), '$')
+                Configuration().NODE_KEY, Configuration().NODE_USERNAME, node_ip), '$')
         self.update(state=constants.RUNNING)
         
     def isRunning(self):
@@ -181,14 +181,14 @@ class Test():
 
         # Absolute maximum running time of 2 hours.  Note that if by happy chance the tests have finished
         # this result will be over-written by retrieveResults
-        if (time.time() - updated > Configuration.MAX_RUNNING_TIME):
+        if (time.time() - updated > int(Configuration().MAX_RUNNING_TIME)):
             self.log.error('Timed out job %s (Running for %d seconds)'%(self, time.time()-updated))
             self.update(result='Aborted: Timed out')
             return False
         
         try:
             success = utils.execute_command('ssh -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i %s %s@%s ps -p `cat /home/jenkins/run_tests.pid`'%(
-                    Configuration.NODE_KEY, Configuration.NODE_USERNAME, self.node_ip), silent=True)
+                    Configuration().NODE_KEY, Configuration().NODE_USERNAME, self.node_ip), silent=True)
             self.log.info('Gate-is-running on job %s (%s) returned: %s'%(
                           self, self.node_ip, success))
             return success
@@ -203,13 +203,13 @@ class Test():
             return "Aborted: No IP"
         try:
             code, stdout, stderr = utils.execute_command('ssh -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i %s %s@%s cat result.txt'%(
-                    Configuration.NODE_KEY, Configuration.NODE_USERNAME, self.node_ip), silent=True,
+                    Configuration().NODE_KEY, Configuration().NODE_USERNAME, self.node_ip), silent=True,
                                                    return_streams=True)
             self.log.info('Result: %s (Err: %s)'%(stdout, stderr))
             self.log.info('Downloading logs for %s'%self)
             utils.copy_logs(['/home/jenkins/workspace/testing/logs/*', '/home/jenkins/run_test*'], dest_path,
-                      self.node_ip, Configuration.NODE_USERNAME,
-                      paramiko.RSAKey.from_private_key_file(Configuration.NODE_KEY),
+                      self.node_ip, Configuration().NODE_USERNAME,
+                      paramiko.RSAKey.from_private_key_file(Configuration().NODE_KEY),
                       upload=False)
             
             if code != 0:

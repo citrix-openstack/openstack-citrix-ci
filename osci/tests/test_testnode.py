@@ -130,7 +130,7 @@ class TestRunning(unittest.TestCase):
     def test_isRunning_timeout(self, mock_update):
         test = Test(change_num="change_num", project_name="project")
         test.node_ip = 'ip'
-        delta = datetime.timedelta(seconds=Configuration.MAX_RUNNING_TIME)
+        delta = datetime.timedelta(seconds=int(Configuration().MAX_RUNNING_TIME))
         test.updated = datetime.datetime.now() - delta
         self.assertFalse(test.isRunning())
         mock_update.assert_called_with(result='Aborted: Timed out')
