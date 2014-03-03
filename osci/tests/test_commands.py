@@ -2,11 +2,10 @@ import unittest
 import  mock
 
 from osci import commands
-from osci import logserver
-from osci import node
 from osci import executor
 from osci import instructions
 from osci import environment
+from osci import gerrit
 
 
 COMMON_SSH_OPTS=(
@@ -143,10 +142,140 @@ class TestWatchGerrit(unittest.TestCase):
         cmd = commands.WatchGerrit()
         self.assertEquals('FakeClient', cmd.gerrit_client.__class__.__name__)
 
-    def test_get_envent(self):
+    @mock.patch('osci.gerrit.get_client')
+    def test_gerrit_client_factory_called(self, get_client):
+        get_client.return_value = 'Client'
+        cmd = commands.WatchGerrit()
+        self.assertEquals('Client', cmd.gerrit_client)
+
+    def test_event_target(self):
+        cmd = commands.WatchGerrit()
+        self.assertEquals('FakeTarget', cmd.event_target.__class__.__name__)
+
+    def test_passing_gerrit_parameters(self):
+        cmd = commands.WatchGerrit(dict(
+            gerrit_host='GHOST',
+            gerrit_port='29418',
+            gerrit_username='GUSER',
+        ))
+
+        self.assertEquals('GHOST', cmd.gerrit_client.host)
+        self.assertEquals(29418, cmd.gerrit_client.port)
+        self.assertEquals('GUSER', cmd.gerrit_client.user)
+
+    def test_get_event(self):
         cmd = commands.WatchGerrit()
         cmd.gerrit_client.fake_insert_event('EVENT')
         self.assertEquals('EVENT', cmd.get_event())
 
-    def test_filter_event(self):
+    def test_filtered_event_removes_non_matching(self):
         cmd = commands.WatchGerrit()
+        cmd.event_filter = gerrit.DummyFilter(False)
+        cmd.gerrit_client.fake_insert_event('EVENT')
+        self.assertEquals(None, cmd.get_filtered_event())
+
+    def test_filter_event_if_no_event_available(self):
+        cmd = commands.WatchGerrit()
+        cmd.event_filter = gerrit.DummyFilter(False)
+        self.assertEquals(None, cmd.get_filtered_event())
+
+    def test_parameters(self):
+        cmd = commands.WatchGerrit()
+        self.assertEquals(
+            [
+                'gerrit_client', 'event_target', 'gerrit_host',
+                'gerrit_port', 'gerrit_username'
+            ],
+            cmd.parameters()
+        )
+
+    def test_consume_event(self):
+        cmd = commands.WatchGerrit()
+        cmd.consume_event('EVENT')
+
+        self.assertEquals(
+            ['EVENT'], cmd.event_target.fake_events
+        )
+
+class TestWatchGerritMainLoop(unittest.TestCase):
+    def setUp(self):
+        self.cmd = cmd = commands.WatchGerrit()
+        self.patchers = [
+            mock.patch.object(cmd, 'sleep'),
+            mock.patch.object(cmd, 'do_event_handling'),
+        ]
+        [patcher.start() for patcher in self.patchers]
+
+    def test_call_quits_if_cannot_sleep(self):
+        cmd = self.cmd
+        cmd.sleep.return_value = False
+        cmd()
+        cmd.sleep.assert_called_once_with()
+
+    def test_call_loop_runs_until_sleep_fails(self):
+        cmd = self.cmd
+        cmd.sleep.side_effect = [True, True, False]
+        cmd()
+        self.assertEquals(3, len(cmd.sleep.mock_calls))
+
+    def test_call_connects(self):
+        cmd = self.cmd
+        cmd.sleep.return_value = False
+        cmd()
+        self.assertEquals(1,
+                          len(cmd.gerrit_client.fake_connect_calls))
+
+    def test_call_runs_main(self):
+        cmd = self.cmd
+        cmd.sleep.side_effect = [True, False]
+        cmd()
+        cmd.do_event_handling.assert_called_once_with()
+
+    def tearDown(self):
+        [patcher.stop() for patcher in self.patchers]
+
+
+class TestSleep(unittest.TestCase):
+    @mock.patch('time.sleep')
+    def test_sleep_called(self, sleep):
+        cmd = commands.WatchGerrit(dict(sleep_timeout=3))
+        cmd.sleep()
+        sleep.assert_called_once_with(3)
+
+    def test_sleep_default_value(self):
+        cmd = commands.WatchGerrit()
+        self.assertEquals(5, cmd.sleep_timeout)
+
+    @mock.patch('time.sleep')
+    def test_sleep_returns_true(self, sleep):
+        cmd = commands.WatchGerrit()
+        result = cmd.sleep()
+        self.assertTrue(result)
+
+
+class TestEventHandling(unittest.TestCase):
+    def setUp(self):
+        self.cmd = cmd = commands.WatchGerrit()
+        self.patchers = [
+            mock.patch.object(cmd, 'get_filtered_event'),
+            mock.patch.object(cmd, 'consume_event'),
+            ]
+        [patcher.start() for patcher in self.patchers]
+
+    def test_event_handling(self):
+        cmd = self.cmd
+        cmd.get_filtered_event.return_value = 'EVENT'
+
+        cmd.do_event_handling()
+
+        cmd.consume_event.assert_called_once_with('EVENT')
+        cmd.get_filtered_event.assert_called_once_with()
+
+    def test_event_handling_no_event(self):
+        cmd = self.cmd
+        cmd.get_filtered_event.return_value = None
+        cmd.do_event_handling()
+        self.assertEquals([], cmd.consume_event.mock_calls)
+
+    def tearDown(self):
+        [patcher.stop() for patcher in self.patchers]

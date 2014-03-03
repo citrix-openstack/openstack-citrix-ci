@@ -1,9 +1,12 @@
+import time
+
 from osci import node
 from osci import executor
 from osci import logserver
 from osci import instructions
 from osci import environment
 from osci import gerrit
+from osci import event_target
 
 
 class GetDom0Logs(object):
@@ -108,11 +111,43 @@ class RunTests(object):
 
 
 class WatchGerrit(object):
-    def __init__(self):
-        self.gerrit_client = gerrit.FakeClient()
+    DEFAULT_SLEEP_TIMEOUT = 5
+
+    def __init__(self, env=None):
+        env = env or dict()
+        self.gerrit_client = gerrit.get_client(env)
+        self.event_filter = gerrit.DummyFilter(True)
+        self.event_target = event_target.FakeTarget()
+        self.sleep_timeout = env.get(
+            'sleep_timeout', self.DEFAULT_SLEEP_TIMEOUT)
+
+    @classmethod
+    def parameters(cls):
+        return [
+            'gerrit_client', 'event_target', 'gerrit_host',
+            'gerrit_port', 'gerrit_username']
 
     def get_event(self):
         return self.gerrit_client.get_event()
 
+    def get_filtered_event(self):
+        event = self.get_event()
+        if self.event_filter.is_event_matching_criteria(event):
+            return event
+
+    def consume_event(self, event):
+        self.event_target.consume_event(event)
+
+    def sleep(self):
+        time.sleep(3)
+        return True
+
+    def do_event_handling(self):
+        event = self.get_filtered_event()
+        if event:
+            self.consume_event(event)
+
     def __call__(self):
-        pass
+        self.gerrit_client.connect()
+        while self.sleep():
+            self.do_event_handling()
