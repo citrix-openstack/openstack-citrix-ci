@@ -72,7 +72,7 @@ class TestQueue():
     def triggerJobs(self):
         allTests = Test.getAllWhere(self.db, state=constants.QUEUED)
         self.log.info('%d tests queued...'%len(allTests))
-        if Configuration().get_bool('RUN_TESTS'):
+        if not Configuration().get_bool('RUN_TESTS'):
             return
         for test in allTests:
             test.runTest(self.nodepool)
