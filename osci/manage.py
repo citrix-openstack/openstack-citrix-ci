@@ -13,6 +13,7 @@ from osci.config import Configuration
 from osci.testqueue import TestQueue
 from osci import constants
 from osci.test import Test
+from osci import utils
 
 
 def is_event_matching_criteria(event):
@@ -90,8 +91,7 @@ def main():
                                  'state', 'created', 'Commit id', 'Node id',
                                  'Node ip', 'Result', 'Logs', 'Report',
                                  'Updated', 'Gerrit URL'])
-        test = Test.getAllWhere(queue.db, change_ref=options.change_ref,
-                                project_name=options.project)[0]
+        test = Test.getAllWhere(queue.db, change_ref=options.change_ref)[0]
         url = 'https://review.openstack.org/%s'%test.change_num
         table.add_column('Value',
                          [test.project_name, test.change_num, test.change_ref,
@@ -105,7 +105,7 @@ def main():
 
     if options.change_ref:
         change_num, patchset = options.change_ref.split('/')[-2:]
-        patch_details = get_patchset_details(change_num, patchset)
+        patch_details = utils.get_patchset_details(change_num, patchset)
         # Verify we got the right patch back
         assert patch_details['ref'] == options.change_ref
         queue.addTest(patch_details['ref'], patch_details['project'], patch_details['revision'])
