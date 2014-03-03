@@ -9,7 +9,7 @@ date > /tmp/recent_finished.txt
 date > /tmp/all_failures.txt
 /usr/local/bin/osci-manage --failures >> /tmp/all_failures.txt
 
-key=`awk '/SFTP_KEY/{print $3}' $TOP_DIR/osci/config.py | tr -d "'" | tr -d '"'`
+key=`python -c 'from osci.config import Configuration; print Configuration().SFTP_KEY'`
 
 scp -i $key /tmp/current_queue.txt /tmp/all_failures.txt /tmp/recent_finished.txt \
     svcacct_openstack@int-ca.downloads.xensource.com:/var/www/html/ca.downloads.xensource.com/OpenStack/xenserver-ci/
