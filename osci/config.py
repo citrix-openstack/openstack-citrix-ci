@@ -61,7 +61,6 @@ class Configuration(object):
         # Insert a dummy section header, so XYZ='abc' can be used in the config file
         self.config = ConfigParser.RawConfigParser(self.defaults)
         ini_str = '[root]\n' + self._conf_file_contents()
-        print ini_str
         ini_fp = StringIO.StringIO(ini_str)
         self.config.readfp(ini_fp)
 
