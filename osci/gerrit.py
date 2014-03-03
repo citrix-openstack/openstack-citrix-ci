@@ -8,6 +8,23 @@ from pygerrit import events
 log = logging.getLogger(__name__)
 
 
+class FakeEvent(object):
+    def __init__(self):
+        self.patchset = FakePatchSet()
+        self.change = FakeChange()
+
+
+class FakeChange(object):
+    def __init__(self):
+        self.project = None
+
+
+class FakePatchSet(object):
+    def __init__(self):
+        self.ref = None
+        self.revision = None
+
+
 class EventFilter(object):
     def is_event_matching_criteria(self, event):
         if event is None:
