@@ -43,6 +43,7 @@ class NodePool():
         self.pool.reconfigureDatabase(config)
         self.pool.setConfig(config)
         self.image = image
+        self.deleteNodeThread = None
 
     def startCleanupThread(self):
         self.deleteNodeThread = DeleteNodeThread(self.pool)
