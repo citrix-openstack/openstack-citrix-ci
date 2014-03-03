@@ -45,6 +45,7 @@ class TestQueue():
                      passwd=password)
         self.initDB(database_name)
         self.nodepool = NodePool(Configuration().NODEPOOL_IMAGE)
+        self.collectResultsThread = None
 
     def startCleanupThread(self):
         self.collectResultsThread = CollectResultsThread(self)
