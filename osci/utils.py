@@ -18,9 +18,9 @@ def mkdir_recursive(target, target_dir):
         mkdir_recursive(target, os.path.dirname(target_dir))
         target.mkdir(target_dir)
 
-def copy_logs(source_masks, target_dir, host, username, key, upload=True):
+def copy_logs(source_masks, target_dir, host, username, key_filename, upload=True):
     logger = logging.getLogger('citrix.copy_logs')
-    ssh = getSSHObject(host, username, key)
+    ssh = getSSHObject(host, username, key_filename)
     sftp = ssh.open_sftp()
     try:
         if upload:

@@ -209,7 +209,7 @@ class Test():
             self.log.info('Downloading logs for %s'%self)
             utils.copy_logs(['/home/jenkins/workspace/testing/logs/*', '/home/jenkins/run_test*'], dest_path,
                       self.node_ip, Configuration().NODE_USERNAME,
-                      paramiko.RSAKey.from_private_key_file(Configuration().NODE_KEY),
+                      Configuration().NODE_KEY,
                       upload=False)
             
             if code != 0:

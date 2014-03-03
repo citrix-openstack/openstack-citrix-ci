@@ -95,7 +95,7 @@ class TestQueue():
             result_path = os.path.join(Configuration().SFTP_COMMON, test.change_ref)
             copy_logs(['%s/*'%tmpPath], os.path.join(Configuration().SFTP_BASE, result_path),
                       Configuration().SFTP_HOST, Configuration().SFTP_USERNAME,
-                      paramiko.RSAKey.from_private_key_file(Configuration().SFTP_KEY))
+                      Configuration().SFTP_KEY)
             self.log.info('Uploaded results for %s', test)
             test.update(result=result,
                         logs_url='http://%s/'%result_path,
