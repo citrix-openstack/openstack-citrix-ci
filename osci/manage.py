@@ -109,6 +109,7 @@ def main():
         # Verify we got the right patch back
         assert patch_details['ref'] == options.change_ref
         queue.addTest(patch_details['ref'], patch_details['project'], patch_details['revision'])
+        return
 
     if options.list:
         table = PrettyTable(["Project", "Change", "State", "IP", "Result",
