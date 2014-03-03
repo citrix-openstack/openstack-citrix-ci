@@ -9,7 +9,7 @@ class DeleteNodeThread(threading.Thread):
     log = logging.getLogger('citrix.DeleteNodeThread')
 
     deleteNodeQueue = Queue.Queue()
-    
+
     def __init__(self, pool):
         threading.Thread.__init__(self, name='DeleteNodeThread')
         self.pool = pool
@@ -21,8 +21,10 @@ class DeleteNodeThread(threading.Thread):
                 self.pool.reconfigureManagers(self.pool.config)
                 with self.pool.getDB().getSession() as session:
                     while True:
-                        # Get a new DB Session every 30 seconds (exception will be caught below)
-                        node_id = self.deleteNodeQueue.get(block=True, timeout=30)
+                        # Get a new DB Session every 30 seconds
+                        # (exception will be caught below)
+                        node_id = self.deleteNodeQueue.get(
+                            block=True, timeout=30)
                         node = session.getNode(node_id)
                         if node:
                             self.pool.deleteNode(session, node)
@@ -34,13 +36,14 @@ class DeleteNodeThread(threading.Thread):
 
 class NodePool():
     log = logging.getLogger('citrix.nodepool')
+
     def __init__(self, image):
         self.pool = nodepool.NodePool(Configuration().NODEPOOL_CONFIG)
         config = self.pool.loadConfig()
         self.pool.reconfigureDatabase(config)
         self.pool.setConfig(config)
         self.image = image
-        
+
     def startCleanupThread(self):
         self.deleteNodeThread = DeleteNodeThread(self.pool)
         self.deleteNodeThread.start()
@@ -63,5 +66,5 @@ class NodePool():
         if self.deleteNodeThread is None:
             self.log.info('Starting node cleanup thread')
             self.startCleanupThread()
-        self.log.info('Adding node %s to the list to delete'%node_id)
+        self.log.info('Adding node %s to the list to delete' % node_id)
         DeleteNodeThread.deleteNodeQueue.put(node_id)
