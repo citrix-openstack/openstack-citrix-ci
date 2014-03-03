@@ -1,7 +1,6 @@
 import logging
 import threading
 import Queue
-from nodepool import nodedb, nodepool
 from osci.config import Configuration
 
 
@@ -38,6 +37,9 @@ class NodePool():
     log = logging.getLogger('citrix.nodepool')
 
     def __init__(self, image):
+        from nodepool import nodedb, nodepool
+        self.nodedb = nodedb
+
         self.pool = nodepool.NodePool(Configuration().NODEPOOL_CONFIG)
         config = self.pool.loadConfig()
         self.pool.reconfigureDatabase(config)
@@ -54,10 +56,10 @@ class NodePool():
             for node in session.getNodes():
                 if node.image_name != self.image:
                     continue
-                if node.state != nodedb.READY:
+                if node.state != self.nodedb.READY:
                     continue
                 # Allocate this node
-                node.state = nodedb.HOLD
+                node.state = self.nodedb.HOLD
                 return node.id, node.ip
         return None, None
 
