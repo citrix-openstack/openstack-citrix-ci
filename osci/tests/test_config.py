@@ -7,26 +7,29 @@ import io
 from osci import config
 
 class TestConfig(unittest.TestCase):
+    def setUp(self):
+        # Always start with a blank config otherwise
+        # the mocked tests might pollute the happy path
+        self.conf = config.Configuration()
+        self.conf.reread()
+        
     def test_config(self):
-        conf = config.Configuration()
-        self.assertEqual(conf.POLL, '30')
+        self.assertEqual(self.conf.POLL, '30')
 
     def test_config_get(self):
-        conf = config.Configuration()
-        self.assertEqual(conf.get('POLL'), '30')
+        self.assertEqual(self.conf.get('POLL'), '30')
 
     @mock.patch.object(config.Configuration, '_conf_file_contents')
     def test_config_file(self, mock_conf_file):
         mock_conf_file.return_value = 'POLL=45'
-        conf = config.Configuration()
-        self.assertEqual(conf.POLL, '45')
+        self.conf.reread()
+        self.assertEqual(self.conf.POLL, '45')
 
     def test_config_get_bool(self):
-        conf = config.Configuration()
-        self.assertEqual(conf.get_bool('RUN_TESTS'), True)
+        self.assertEqual(self.conf.get_bool('RUN_TESTS'), True)
 
     @mock.patch.object(config.Configuration, '_conf_file_contents')
     def test_config_get_bool_file(self, mock_conf_file):
         mock_conf_file.return_value = 'RUN_TESTS=False'
-        conf = config.Configuration()
-        self.assertEqual(conf.get_bool('RUN_TESTS'), False)
+        self.conf.reread()
+        self.assertEqual(self.conf.get_bool('RUN_TESTS'), False)

@@ -208,11 +208,11 @@ def main():
                      Configuration().GERRIT_HOST)
         logging.info("Connecting to gerrit username %s",
                      Configuration().GERRIT_USERNAME)
-        logging.info("Connecting to gerrit port %d",
+        logging.info("Connecting to gerrit port %s",
                      Configuration().GERRIT_PORT)
         gerrit = GerritClient(host=Configuration().GERRIT_HOST,
                               username=Configuration().GERRIT_USERNAME,
-                              port=Configuration().GERRIT_PORT)
+                              port=int(Configuration().GERRIT_PORT))
         logging.info("Connected to Gerrit version [%s]",
                      gerrit.gerrit_version())
         gerrit.start_event_stream()
@@ -220,12 +220,14 @@ def main():
         logging.error("Gerrit error: %s", err)
         return 1
 
+    last_event = time.time()
     errors = Event()
     try:
         while True:
             event = gerrit.get_event(block=False)
             while event:
                 logging.debug("Event: %s", event)
+                last_event = time.time()
 
                 if is_event_matching_criteria(event):
                     queue_event(queue, event)
@@ -234,6 +236,9 @@ def main():
                     logging.error(event.error)
                     errors.set()
                 event = gerrit.get_event(block=False)
+            if ((time.time() - last_event) > Configuration().GERRIT_EVENT_TIMEOUT):
+                msg = 'No events from gerrit in required time.  Exiting.'
+                raise RuntimeError(msg)
             try:
                 queue.postResults()
                 queue.processResults()

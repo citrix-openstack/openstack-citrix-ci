@@ -112,7 +112,7 @@ def vote(commitid, vote_num, message):
                       commitid, vote_num)
         vote_num = "0"
         message += "\n\nNegative vote suppressed"
-    vote_cmd = "ssh$-q$-o$BatchMode=yes$-o$UserKnownHostsFile=/dev/null$-o$StrictHostKeyChecking=no$-p$%d$%s@%s$gerrit$review"%(Configuration().GERRIT_PORT, Configuration().GERRIT_USERNAME, Configuration().GERRIT_HOST)
+    vote_cmd = "ssh$-q$-o$BatchMode=yes$-o$UserKnownHostsFile=/dev/null$-o$StrictHostKeyChecking=no$-p$%s$%s@%s$gerrit$review"%(Configuration().GERRIT_PORT, Configuration().GERRIT_USERNAME, Configuration().GERRIT_HOST)
     vote_cmd = vote_cmd + "$-m$'" + message + "'"
     if Configuration().get_bool('VOTE_SERVICE_ACCOUNT'):
         vote_cmd = vote_cmd + "$--verified=" + vote_num
