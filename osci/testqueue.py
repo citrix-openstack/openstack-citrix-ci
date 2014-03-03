@@ -107,6 +107,9 @@ class TestQueue():
         test.update(node_id=0)
 
     def processResults(self):
+        if self.collectResultsThread is None:
+            self.log.info('Starting collect thread')
+            self.startCleanupThread()
         allTests = Test.getAllWhere(self.db, state=constants.RUNNING)
         self.log.info('%d tests running...'%len(allTests))
         for test in allTests:
@@ -114,9 +117,6 @@ class TestQueue():
                 continue
             
             test.update(state=constants.COLLECTING)
-            if self.collectResultsThread is None:
-                self.log.info('Starting collect thread')
-                self.startCleanupThread()
             self.log.info('Tests for %s are done! Collecting'%test)
             CollectResultsThread.collectTests.put(test)
 
