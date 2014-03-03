@@ -40,12 +40,6 @@ def queue_event(queue, event):
                       event.change.project,
                       event.patchset.revision)
 
-def check_for_change_ref(option, opt_str, value, parser):
-    if not parser.values.change_ref:
-        msg = "can't use %s, Please provide --change_ref/-c before %s"
-        raise optparse.OptionValueError(msg%(opt_str, opt_str))
-    setattr(parser.values, option.dest, value)
-
 def get_parser():
     usage = "usage: %prog [options]"
 
@@ -53,13 +47,8 @@ def get_parser():
     parser.add_option('-v', '--verbose', dest='verbose', action='store_true',
                       default=False, help='enable verbose (debug) logging')
     parser.add_option('-c', '--change-ref', dest='change_ref', action="store",
-                      type="string", help="One time job on a change-ref")
-    parser.add_option('-x', '--commit-id', dest='commitid',
-                      action="callback", callback=check_for_change_ref,
-                      type="string", help="One time job on a change-id")
-    parser.add_option('-j', '--project', dest='project', action="callback",
-                      callback=check_for_change_ref, type="string",
-                      help="project of the change-ref provided")
+                      type="string", help="One time job on a change-ref "+\
+                      "e.g. refs/changes/55/7155/1")
     parser.add_option('--list', dest='list',
                       action='store_true', default=False,
                       help="List the tests recorded by the system")
@@ -81,8 +70,6 @@ def get_parser():
 def main():
     parser = get_parser()
     (options, _) = parser.parse_args()
-    if options.change_ref and (not options.project or not options.commitid):
-        parser.error('Can only use --change_ref with --project')
 
     level = logging.DEBUG if options.verbose else logging.INFO
     logging.basicConfig(
@@ -96,7 +83,6 @@ def main():
 
     queue = TestQueue(Configuration().MYSQL_URL, Configuration().MYSQL_USERNAME,
                       Configuration().MYSQL_PASSWORD, Configuration().MYSQL_DB)
-
 
     if options.show:
         table = PrettyTable()
@@ -117,13 +103,12 @@ def main():
         print table
         return
 
-
     if options.change_ref:
-        # Execute tests and vote
-        if not is_project_configured(options.project):
-            logging.info("Project specified does not match criteria")
-            return
-        queue.addTest(options.change_ref, options.project, options.commitid)
+        change_num, patchset = options.change_ref.split('/')[-2:]
+        patch_details = get_patchset_details(change_num, patchset)
+        # Verify we got the right patch back
+        assert patch_details['ref'] == options.change_ref
+        queue.addTest(patch_details['ref'], patch_details['project'], patch_details['revision'])
 
     if options.list:
         table = PrettyTable(["Project", "Change", "State", "IP", "Result",

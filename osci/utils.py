@@ -6,6 +6,7 @@ import fnmatch
 from stat import S_ISREG
 import subprocess
 import errno
+import json
 
 from osci.config import Configuration
 
@@ -123,3 +124,22 @@ def vote(commitid, vote_num, message):
     else:
         logging.info("Successfully voted %s for change %s", vote_num, commitid)
 
+def get_commit_json(change_id):
+    # ssh -i ~/.ssh/citrix_gerrit -p 29418 citrix_xenserver_ci@10.80.2.68 gerrit query --format=JSON limit:2 73641 --patch-sets
+    query = "ssh$-q$-o$BatchMode=yes$-o$UserKnownHostsFile=/dev/null$-o$StrictHostKeyChecking=no"
+    query = query + "-p$%s$%s@%s$gerrit$query"%(Configuration().GERRIT_PORT,
+                                                Configuration().GERRIT_USERNAME,
+                                                Configuration().GERRIT_HOST)
+    query = query + "$-format=JSON$limit:1$--patch-sets"
+    query = query + "$" + change_id
+    (code, stdout, stderr) = execute_command(query, '$', return_streams=True)
+    if code == 0:
+        return json.loads(stdout.splitlines[0])
+    
+def get_patchset_details(change_id, patchset_id):
+    commit_json = get_commit_json(change_id)
+    patch_sets = commit_json['patchSets']
+    matching_patches = [i for i in patch_sets if i['number'] == patchset_id]
+    matching_patch = matching_patches[0]
+    matching_patch['project'] = commit_json['project']
+    return matching_patches[0]
