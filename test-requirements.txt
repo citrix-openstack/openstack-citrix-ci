@@ -3,3 +3,4 @@ mock
 pygerrit
 paramiko
 mysql-python
+pyrax
