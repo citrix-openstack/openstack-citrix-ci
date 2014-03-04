@@ -16,7 +16,7 @@ class DB(object):
         self.engine = create_engine(self.database_url)
         self.conn = None
 
-    def create_database_and_schema(self):
+    def create_schema(self):
         Base.metadata.create_all(self.engine)
 
     def execute(self, sql):

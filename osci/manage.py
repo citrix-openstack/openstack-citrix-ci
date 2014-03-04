@@ -85,7 +85,7 @@ def main():
         logging.getLogger(logger_name).setLevel(logging.WARNING)
 
     database = db.DB(Configuration().DATABASE_URL)
-    database.create_database_and_schema()
+    database.create_schema()
 
     queue = TestQueue(database)
 
