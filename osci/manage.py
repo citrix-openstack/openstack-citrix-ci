@@ -88,7 +88,9 @@ def main():
         host=Configuration().MYSQL_URL,
         user=Configuration().MYSQL_USERNAME,
         password=Configuration().MYSQL_PASSWORD)
-    queue = TestQueue(database, Configuration().MYSQL_DB)
+    database.create_database_and_schema(Configuration().MYSQL_DB)
+
+    queue = TestQueue(database)
 
     if options.show:
         table = PrettyTable()
