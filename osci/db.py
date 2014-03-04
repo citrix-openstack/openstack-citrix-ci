@@ -1,58 +1,28 @@
 import logging
-import MySQLdb
+from sqlalchemy import create_engine
+from sqlalchemy.ext.declarative import declarative_base
 
-from osci import test
+# Import these, so that other modules can import it from here
+from sqlalchemy import Column, Integer, String, DateTime, Text, UniqueConstraint
+
+Base = declarative_base()
 
 
-class DB:
+class DB(object):
     log = logging.getLogger('citrix.db')
-    def __init__(self, host, user, passwd, database):
+
+    def __init__(self, database_url):
+        self.database_url = database_url
+        self.engine = create_engine(self.database_url)
         self.conn = None
-        self.host = host
-        self.user = user
-        self.passwd = passwd
-        self.database = database
-        self.connect()
 
     def create_database_and_schema(self):
-        try:
-            self.execute('USE %s'%self.database)
-        except:
-            self.execute('CREATE DATABASE %s'%self.database)
-            self.execute('USE %s'%self.database)
+        Base.metadata.create_all(self.engine)
 
-        test.Test.createTable(self)
+    def execute(self, sql):
+        with self.engine.begin() as conn:
+            conn.execute(sql)
 
-    def connect(self):
-        if self.conn is not None:
-            try:
-                self.conn.close()
-            except Exception, e:
-                self.log.exception(e)
-        self.conn = MySQLdb.connect(self.host, self.user, self.passwd)
-
-    def execute(self, sql, retry=True):
-        cur = self.conn.cursor()
-        try:
-            cur.execute(sql)
-            self.conn.commit()
-        except (AttributeError, MySQLdb.OperationalError):
-            if retry:
-                self.connect()
-                self.execute(sql, False)
-        except:
-            self.log.error('Error running SQL %s'%sql)
-            self.conn.rollback()
-
-    def query(self, sql, retry=True):
-        cur = self.conn.cursor()
-        try:
-            cur.execute(sql)
-            results = cur.fetchall()
-            self.conn.commit()
-            return results
-        except (AttributeError, MySQLdb.OperationalError):
-            if retry:
-                self.connect()
-                return self.query(sql, False)
-
+    def query(self, sql):
+        with self.engine.begin() as conn:
+            return conn.execute(sql).fetchall()
