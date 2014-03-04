@@ -14,6 +14,7 @@ from osci.testqueue import TestQueue
 from osci import constants
 from osci.test import Test
 from osci import utils
+from osci import db
 
 
 def is_event_matching_criteria(event):
@@ -83,8 +84,14 @@ def main():
                         'swiftclient']:
         logging.getLogger(logger_name).setLevel(logging.WARNING)
 
-    queue = TestQueue(Configuration().MYSQL_URL, Configuration().MYSQL_USERNAME,
-                      Configuration().MYSQL_PASSWORD, Configuration().MYSQL_DB)
+    database = db.DB(
+        host=Configuration().MYSQL_URL,
+        user=Configuration().MYSQL_USERNAME,
+        password=Configuration().MYSQL_PASSWORD,
+        database=Configuration().MYSQL_DB)
+    database.create_database_and_schema()
+
+    queue = TestQueue(database)
 
     if options.show:
         table = PrettyTable()

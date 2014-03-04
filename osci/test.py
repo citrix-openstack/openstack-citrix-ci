@@ -10,8 +10,17 @@ from osci import instructions
 from osci import utils
 from osci import environment
 
+
+class SQLLiteral(object):
+    def __init__(self, literal_value):
+        self.literal_value = literal_value
+
+
 class Test():
     log = logging.getLogger('citrix.test')
+
+    NULL = SQLLiteral('NULL')
+    CURRENT_TIMESTAMP = SQLLiteral('CURRENT_TIMESTAMP')
 
     def __init__(self, change_num=None, change_ref=None, project_name=None, commit_id=None):
         self.db = None
@@ -117,15 +126,24 @@ class Test():
         self.log.info("Job for %s queued"%self.change_num)
 
     def update(self, **kwargs):
-        sql = 'UPDATE test SET updated=CURRENT_TIMESTAMP,'
         if self.state == constants.RUNNING and kwargs.get('state', constants.RUNNING) != constants.RUNNING:
-            sql += ' test_stopped=CURRENT_TIMESTAMP,'
+            kwargs['test_stopped'] = self.CURRENT_TIMESTAMP
             
-        for key, value in kwargs.iteritems():
-            sql += ' %s="%s",'%(key, value)
-            setattr(self, key, value)
         if kwargs.get('state', None) == constants.RUNNING:
-            sql += ' test_started=CURRENT_TIMESTAMP,test_stopped=NULL,'
+            kwargs['test_started'] = self.CURRENT_TIMESTAMP
+            kwargs['test_stopped'] = self.NULL
+
+        self.update_database_record(**kwargs)
+
+    def update_database_record(self, **kwargs):
+        sql = 'UPDATE test SET updated=CURRENT_TIMESTAMP,'
+        for key in sorted(kwargs.keys()):
+            value = kwargs[key]
+            if value in [self.NULL, self.CURRENT_TIMESTAMP]:
+                sql += ' %s=%s,'%(key, value.literal_value)
+            else:
+                sql += ' %s="%s",'%(key, value)
+            setattr(self, key, value)
 
         assert sql[-1:] == ","
         sql = sql[:-1] # Strip off the last ,

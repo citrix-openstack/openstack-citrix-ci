@@ -40,11 +40,8 @@ class CollectResultsThread(threading.Thread):
 
 class TestQueue():
     log = logging.getLogger('citrix.TestQueue')
-    def __init__(self, host, username, password, database_name):
-        self.db = DB(host=host,
-                     user=username,
-                     passwd=password)
-        self.initDB(database_name)
+    def __init__(self, database):
+        self.db = database
         self.nodepool = NodePool(Configuration().NODEPOOL_IMAGE)
         self.collectResultsThread = None
 
@@ -52,15 +49,6 @@ class TestQueue():
         self.collectResultsThread = CollectResultsThread(self)
         self.collectResultsThread.start()
         
-    def initDB(self, database):
-        try:
-            self.db.execute('USE %s'%database)
-        except:
-            self.db.execute('CREATE DATABASE %s'%database)
-            self.db.execute('USE %s'%database)
-            
-        Test.createTable(self.db)
-    
     def addTest(self, change_ref, project_name, commit_id):
         change_num = change_ref.split('/')[3]
         existing = Test.retrieve(self.db, project_name, change_num)

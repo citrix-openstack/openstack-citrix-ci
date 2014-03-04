@@ -42,7 +42,7 @@ class TestDBMethods(unittest.TestCase):
         
         self.assertEqual(test.state, constants.RUNNING)
         expected = 'UPDATE test SET updated=CURRENT_TIMESTAMP, state="%s", '+\
-                   'test_started=CURRENT_TIMESTAMP,test_stopped=NULL '+\
+                   'test_started=CURRENT_TIMESTAMP, test_stopped=NULL '+\
                    'WHERE project_name="project" AND change_num="change_num"'
         db.execute.assert_called_once_with(expected%(constants.RUNNING))
 
@@ -56,8 +56,8 @@ class TestDBMethods(unittest.TestCase):
         test.update(state=constants.COLLECTING)
         
         self.assertEqual(test.state, constants.COLLECTING)
-        expected = 'UPDATE test SET updated=CURRENT_TIMESTAMP, '+\
-                   'test_stopped=CURRENT_TIMESTAMP, state="%s" '+\
+        expected = 'UPDATE test SET updated=CURRENT_TIMESTAMP, state="%s", '+\
+                   'test_stopped=CURRENT_TIMESTAMP '+\
                    'WHERE project_name="project" AND change_num="change_num"'
         db.execute.assert_called_once_with(expected%(constants.COLLECTING))
 
