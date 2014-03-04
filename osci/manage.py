@@ -84,12 +84,8 @@ def main():
                         'swiftclient']:
         logging.getLogger(logger_name).setLevel(logging.WARNING)
 
-    database = db.DB(
-        host=Configuration().MYSQL_URL,
-        user=Configuration().MYSQL_USERNAME,
-        password=Configuration().MYSQL_PASSWORD,
-        database=Configuration().MYSQL_DB)
-    database.create_database_and_schema()
+    database = db.DB(Configuration().DATABASE_URL)
+    database.create_schema()
 
     queue = TestQueue(database)
 

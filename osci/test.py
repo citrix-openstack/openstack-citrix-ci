@@ -9,6 +9,7 @@ from osci.config import Configuration
 from osci import instructions
 from osci import utils
 from osci import environment
+from osci import db
 
 
 class SQLLiteral(object):
@@ -16,7 +17,31 @@ class SQLLiteral(object):
         self.literal_value = literal_value
 
 
-class Test():
+class Test(db.Base):
+    __tablename__ = 'test'
+
+    __table_args__ = (
+        db.UniqueConstraint('project_name', 'change_num'),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    project_name = db.Column('project_name', db.String(50))
+    change_num = db.Column('change_num', db.String(10))
+    change_ref = db.Column('change_ref', db.String(50))
+    state = db.Column('state', db.Integer())
+    created = db.Column('created', db.DateTime())
+    commit_id = db.Column('commit_id', db.String(50))
+    node_id = db.Column('node_id', db.Integer())
+    node_ip = db.Column('node_ip', db.String(50))
+    result = db.Column('result', db.String(50))
+    logs_url = db.Column('logs_url', db.String(200))
+    report_url = db.Column('report_url', db.String(200))
+    updated = db.Column('updated', db.DateTime())
+    test_started = db.Column('test_started', db.DateTime())
+    test_stopped = db.Column('test_stopped', db.DateTime())
+    failed = db.Column('failed', db.Text())
+
+
     log = logging.getLogger('citrix.test')
 
     NULL = SQLLiteral('NULL')
@@ -56,29 +81,6 @@ class Test():
         retVal.test_stopped = record[i]; i += 1
 
         return retVal
-
-    @classmethod
-    def createTable(cls, db):
-        sql = 'CREATE TABLE IF NOT EXISTS test'+\
-              '('+\
-              ' project_name VARCHAR(50),' +\
-              ' change_num VARCHAR(10),' +\
-              ' change_ref VARCHAR(50),' +\
-              ' state INT,'+\
-              ' created DATETIME,' +\
-              ' commit_id VARCHAR(50),'+\
-              ' node_id INT,'+\
-              ' node_ip VARCHAR(50),'+\
-              ' result VARCHAR(50),'+\
-              ' logs_url VARCHAR(200),'+\
-              ' report_url VARCHAR(200),'+\
-              ' updated TIMESTAMP,' +\
-              ' test_started TIMESTAMP,' +\
-              ' test_stopped TIMESTAMP,' +\
-              ' failed TEXT,' +\
-              ' PRIMARY KEY (project_name, change_num)'+\
-              ')'
-        db.execute(sql)
 
     @classmethod
     def getAllWhere(cls, db, **kwargs):

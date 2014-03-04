@@ -22,10 +22,7 @@ class Configuration(object):
         'GERRIT_USERNAME': 'citrix_xenserver_ci',
         'GERRIT_PORT': '29418',
         'MAX_RUNNING_TIME': str(3*3600+15*60), # 3 hours and 15 minutes
-        'MYSQL_URL': '127.0.0.1',
-        'MYSQL_USERNAME': 'root',
-        'MYSQL_PASSWORD': '',
-        'MYSQL_DB': 'openstack_ci',
+        'DATABASE_URL': 'mysql://root:@127.0.0.1/openstack_ci',
         'NODEPOOL_CONFIG': '/etc/nodepool/nodepool.yaml',
         'NODEPOOL_IMAGE': 'devstack-xenserver',
         'NODE_USERNAME': 'jenkins',
