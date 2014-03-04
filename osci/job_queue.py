@@ -44,6 +44,7 @@ class TestQueue(object):
         self.db = database
         self.nodepool = nodepool
         self.collectResultsThread = None
+        self.tests_enabled = Configuration().get_bool('RUN_TESTS')
 
     def startCleanupThread(self):
         self.collectResultsThread = CollectResultsThread(self)
@@ -60,12 +61,15 @@ class TestQueue(object):
         test.insert(self.db)
 
     def triggerJobs(self):
+        for test in self.get_queued_enabled_tests():
+            test.runTest(self.nodepool)
+
+    def get_queued_enabled_tests(self):
         allTests = Test.getAllWhere(self.db, state=constants.QUEUED)
         self.log.info('%d tests queued...'%len(allTests))
-        if not Configuration().get_bool('RUN_TESTS'):
-            return
-        for test in allTests:
-            test.runTest(self.nodepool)
+        if self.tests_enabled:
+            return allTests
+        return []
 
     def uploadResults(self, test):
         tmpPath = tempfile.mkdtemp(suffix=test.change_num)

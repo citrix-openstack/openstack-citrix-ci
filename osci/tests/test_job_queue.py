@@ -51,3 +51,33 @@ class TestInit(unittest.TestCase):
         test, = job.Test.getAllWhere(database)
         self.assertTrue(test.queued)
         self.assertEquals([], nodepool.node_ids)
+
+    def test_get_queued_items_non_empty(self):
+        database = db.DB('sqlite://')
+        database.create_schema()
+        nodepool = FakeNodePool()
+
+        q = job_queue.TestQueue(database=database, nodepool=nodepool)
+        q.addTest('refs/changes/61/65261/7', 'project', 'commit')
+
+        self.assertEquals(1, len(q.get_queued_enabled_tests()))
+
+    def test_get_queued_items_non_empty_disabled(self):
+        database = db.DB('sqlite://')
+        database.create_schema()
+        nodepool = FakeNodePool()
+
+        q = job_queue.TestQueue(database=database, nodepool=nodepool)
+        q.tests_enabled = False
+        q.addTest('refs/changes/61/65261/7', 'project', 'commit')
+
+        self.assertEquals(0, len(q.get_queued_enabled_tests()))
+
+    def test_get_queued_items_empty(self):
+        database = db.DB('sqlite://')
+        database.create_schema()
+        nodepool = FakeNodePool()
+
+        q = job_queue.TestQueue(database=database, nodepool=nodepool)
+
+        self.assertEquals(0, len(q.get_queued_enabled_tests()))
