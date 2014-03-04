@@ -79,7 +79,7 @@ class SwiftUploader(object):
         if 'run_tests.log' in filenames:
             filenames.remove('run_tests.log')
             filenames.insert(0, 'run_tests.log')
-        for filename in os.listdir(local_dir):
+        for filename in filenames:
             full_path = os.path.join(local_dir, filename)
             
             stats = os.stat(full_path)
