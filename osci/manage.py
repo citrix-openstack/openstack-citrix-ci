@@ -222,7 +222,7 @@ def main():
                     logging.error(event.error)
                     errors.set()
                 event = gerrit.get_event(block=False)
-            if ((time.time() - last_event) > Configuration().GERRIT_EVENT_TIMEOUT):
+            if ((time.time() - last_event) > Configuration().get_int('GERRIT_EVENT_TIMEOUT')):
                 msg = 'No events from gerrit in required time.  Exiting.'
                 raise RuntimeError(msg)
             try:
