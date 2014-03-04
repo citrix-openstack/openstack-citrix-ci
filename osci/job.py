@@ -100,8 +100,10 @@ class Test(db.Base):
                 setattr(self, name, value)
 
     def delete(self, db):
-        SQL = 'DELETE FROM test WHERE project_name="%s" AND change_num="%s"'
-        db.execute(SQL%(self.project_name, self.change_num))
+        with db.get_session() as session:
+            obj, = session.query(self.__class__).filter_by(
+                project_name=self.project_name, change_num=self.change_num).all()
+            session.delete(obj)
 
     def runTest(self, nodepool):
         if self.node_id:

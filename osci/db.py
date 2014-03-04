@@ -28,11 +28,3 @@ class DB(object):
 
     def create_schema(self):
         Base.metadata.create_all(self.engine)
-
-    def execute(self, sql):
-        with self.engine.begin() as conn:
-            conn.execute(sql)
-
-    def query(self, sql):
-        with self.engine.begin() as conn:
-            return conn.execute(sql).fetchall()
