@@ -9,16 +9,6 @@ from osci.job import Test
 from osci.config import Configuration
 
 class TestDBMethods(unittest.TestCase):
-    def test_insert_queued(self):
-        db = mock.Mock()
-        test = Test(change_num="change_num", project_name="project")
-        test.created='NOW'
-        test.insert(db)
-        expected = 'INSERT INTO test(project_name, change_num, change_ref,'+\
-                   ' state, created, commit_id) VALUES("project","change_num",'+\
-                   '"None","%s","NOW","None")'%constants.QUEUED
-        db.execute.assert_called_once_with(expected)
-
     def test_update(self):
         db = mock.Mock()
         test = Test(change_num="change_num", project_name="project")

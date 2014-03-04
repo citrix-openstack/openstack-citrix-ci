@@ -122,15 +122,6 @@ class Test(db.Base):
 
         return test
 
-    def insert(self, db):
-        self.db = db
-        SQL = 'INSERT INTO test(project_name, change_num, change_ref, state, created, commit_id) '+\
-              'VALUES("%s","%s","%s","%s","%s","%s")'%(
-            self.project_name, self.change_num, self.change_ref,
-            self.state, self.created, self.commit_id)
-        self.db.execute(SQL)
-        self.log.info("Job for %s queued"%self.change_num)
-
     def update(self, **kwargs):
         if self.state == constants.RUNNING and kwargs.get('state', constants.RUNNING) != constants.RUNNING:
             kwargs['test_stopped'] = self.CURRENT_TIMESTAMP
