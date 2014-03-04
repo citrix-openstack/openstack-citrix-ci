@@ -88,25 +88,15 @@ class Test(db.Base):
 
     @classmethod
     def getAllWhere(cls, db, **kwargs):
-        sql = 'SELECT * FROM test'
-        if len(kwargs) > 0:
-            sql += ' WHERE'
-
-            for key, value in kwargs.iteritems():
-                sql += ' %s="%s" AND'%(key, value)
-
-            assert sql[-4:] == " AND"
-            sql = sql[:-4] # Strip off the last AND
-        sql += ' ORDER BY updated ASC'
-        results = db.query(sql)
-
-        retRecords = []
-        for result in results:
-            test = Test.fromRecord(result)
-            test.db = db
-            retRecords.append(test)
-
-        return retRecords
+        session = db.get_session()
+        result = (
+            session
+                .query(cls)
+                .filter_by(**kwargs)
+                .order_by(cls.updated).all()
+        )
+        session.close()
+        return result
 
     @classmethod
     def retrieve(cls, db, project_name, change_num):
