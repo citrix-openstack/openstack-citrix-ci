@@ -74,6 +74,11 @@ class SwiftUploader(object):
         container = cf.create_container(Configuration().SWIFT_CONTAINER)
         
         contents = _html_start_stansa(cf_prefix)
+        filenames = os.listdir(local_dir)
+        filenames.sort()
+        if 'run_tests.log' in filenames:
+            filenames.remove('run_tests.log')
+            filenames.insert(0, 'run_tests.log')
         for filename in os.listdir(local_dir):
             full_path = os.path.join(local_dir, filename)
             

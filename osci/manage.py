@@ -79,7 +79,8 @@ def main():
 
     # Lower the warning levels of a number of loggers
     for logger_name in ['paramiko.transport', 'paramiko.transport.sftp',
-                        'requests.packages.urllib3.connectionpool']:
+                        'requests.packages.urllib3.connectionpool',
+                        'swiftclient']:
         logging.getLogger(logger_name).setLevel(logging.WARNING)
 
     queue = TestQueue(Configuration().MYSQL_URL, Configuration().MYSQL_USERNAME,
