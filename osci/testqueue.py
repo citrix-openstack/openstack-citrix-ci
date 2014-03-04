@@ -51,14 +51,8 @@ class TestQueue():
         self.collectResultsThread.start()
         
     def initDB(self, database):
-        try:
-            self.db.execute('USE %s'%database)
-        except:
-            self.db.execute('CREATE DATABASE %s'%database)
-            self.db.execute('USE %s'%database)
-            
-        Test.createTable(self.db)
-    
+        self.db.initialise(database)
+
     def addTest(self, change_ref, project_name, commit_id):
         change_num = change_ref.split('/')[3]
         existing = Test.retrieve(self.db, project_name, change_num)

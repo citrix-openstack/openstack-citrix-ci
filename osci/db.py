@@ -1,6 +1,8 @@
 import logging
 import MySQLdb
 
+from osci import test
+
 
 class DB:
     log = logging.getLogger('citrix.db')
@@ -10,7 +12,16 @@ class DB:
         self.user = user
         self.passwd = passwd
         self.connect()
-    
+
+    def initialise(self, database):
+        try:
+            self.execute('USE %s'%database)
+        except:
+            self.execute('CREATE DATABASE %s'%database)
+            self.execute('USE %s'%database)
+
+        test.Test.createTable(self)
+
     def connect(self):
         if self.conn is not None:
             try:
