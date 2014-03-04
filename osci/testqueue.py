@@ -9,7 +9,7 @@ import Queue
 from osci.db import DB
 from osci.config import Configuration
 from osci.nodepool_manager import NodePool
-from osci.test import Test
+from osci.job import Test
 from osci import constants 
 from osci.utils import execute_command, copy_logs, vote
 from osci.swift_upload import SwiftUploader
