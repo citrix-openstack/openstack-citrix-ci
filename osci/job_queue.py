@@ -10,15 +10,16 @@ from osci.db import DB
 from osci.config import Configuration
 from osci.nodepool_manager import NodePool
 from osci.job import Test
-from osci import constants 
+from osci import constants
 from osci.utils import execute_command, copy_logs, vote
 from osci.swift_upload import SwiftUploader
+
 
 class CollectResultsThread(threading.Thread):
     log = logging.getLogger('citrix.CollectResultsThread')
 
     collectTests = Queue.Queue()
-    
+
     def __init__(self, testQueue):
         threading.Thread.__init__(self, name='DeleteNodeThread')
         self.daemon = True
@@ -48,7 +49,7 @@ class TestQueue():
     def startCleanupThread(self):
         self.collectResultsThread = CollectResultsThread(self)
         self.collectResultsThread.start()
-        
+
     def addTest(self, change_ref, project_name, commit_id):
         change_num = change_ref.split('/')[3]
         existing = Test.retrieve(self.db, project_name, change_num)
@@ -74,12 +75,12 @@ class TestQueue():
             if not result:
                 logging.info('No result obtained from %s', test)
                 return
-            
+
             code, fail_stdout, stderr = execute_command('grep$... FAIL$%s/run_tests.log'%tmpPath,
                                                         delimiter='$',
                                                         return_streams=True)
             self.log.info('Result: %s (Err: %s)', fail_stdout, stderr)
-                
+
             self.log.info('Copying logs for %s', test)
             result_url = SwiftUploader().upload(tmpPath,
                                                 test.change_ref.replace('refs/changes/',''))
@@ -103,7 +104,7 @@ class TestQueue():
         for test in allTests:
             if test.isRunning():
                 continue
-            
+
             test.update(state=constants.COLLECTING)
             self.log.info('Tests for %s are done! Collecting'%test)
             CollectResultsThread.collectTests.put(test)
@@ -117,7 +118,7 @@ class TestQueue():
                              test, test.result)
                 test.update(state=constants.FINISHED)
                 continue
-                
+
             if Configuration().get_bool('VOTE'):
                 message = Configuration().VOTE_MESSAGE % {'result':test.result,
                                                         'report': test.report_url,
