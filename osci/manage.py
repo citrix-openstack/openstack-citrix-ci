@@ -198,7 +198,7 @@ def main():
                      Configuration().GERRIT_PORT)
         gerrit = GerritClient(host=Configuration().GERRIT_HOST,
                               username=Configuration().GERRIT_USERNAME,
-                              port=int(Configuration().GERRIT_PORT))
+                              port=Configuration().get_int('GERRIT_PORT'))
         logging.info("Connected to Gerrit version [%s]",
                      gerrit.gerrit_version())
         gerrit.start_event_stream()
@@ -232,7 +232,7 @@ def main():
             except Exception, e:
                 logging.exception(e)
                 # Ignore exception and try again; keeps the app polling
-            time.sleep(int(Configuration().POLL))
+            time.sleep(Configuration().get_int('POLL'))
     except KeyboardInterrupt:
         logging.info("Terminated by user")
     finally:

@@ -181,7 +181,7 @@ class Test():
 
         # Absolute maximum running time of 2 hours.  Note that if by happy chance the tests have finished
         # this result will be over-written by retrieveResults
-        if (time.time() - updated > int(Configuration().MAX_RUNNING_TIME)):
+        if (time.time() - updated > Configuration().get_int('MAX_RUNNING_TIME')):
             self.log.error('Timed out job %s (Running for %d seconds)'%(self, time.time()-updated))
             self.update(result='Aborted: Timed out')
             return False

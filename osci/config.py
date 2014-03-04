@@ -76,3 +76,7 @@ class Configuration(object):
         if val.lower() in ("no",  "n", "false"): return False
         raise Exception('Invalid value for boolean: %s'%val)
 
+    def get_int(self, attr):
+        val = self.get(attr)
+        return int(val)
+
