@@ -13,6 +13,7 @@ setup(
             'osci-run-tests = osci.scripts:run_tests',
             'osci-manage = osci.manage:main',
             'osci-watch-gerrit = osci.scripts:watch_gerrit',
+            'osci-upload = osci.swift_upload:main',
         ]
     }
 )
