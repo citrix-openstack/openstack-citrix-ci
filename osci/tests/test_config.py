@@ -38,7 +38,7 @@ class TestConfig(unittest.TestCase):
         self.assertEqual(self.conf.get_int('POLL'), 30)
 
     @mock.patch.object(config.Configuration, '_conf_file_contents')
-    def test_config_get_bool_file(self, mock_conf_file):
+    def test_config_get_int_file(self, mock_conf_file):
         mock_conf_file.return_value = 'POLL=10'
         self.conf.reread()
         self.assertEqual(self.conf.get_int('POLL'), 10)
