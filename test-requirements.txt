@@ -4,3 +4,4 @@ pygerrit
 paramiko
 mysql-python
 pyrax
+coverage
