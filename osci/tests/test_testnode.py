@@ -8,6 +8,7 @@ from osci import utils
 from osci.job import Test
 from osci.config import Configuration
 
+
 class TestDBMethods(unittest.TestCase):
     def test_update(self):
         db = mock.Mock()
@@ -16,7 +17,7 @@ class TestDBMethods(unittest.TestCase):
         test.db = db
         self.assertEqual(test.state, constants.QUEUED)
         test.update(state=constants.FINISHED)
-        
+
         self.assertEqual(test.state, constants.FINISHED)
         expected = 'UPDATE test SET updated=CURRENT_TIMESTAMP, state="%s" '+\
                    'WHERE project_name="project" AND change_num="change_num"'
@@ -29,7 +30,7 @@ class TestDBMethods(unittest.TestCase):
         test.db = db
         self.assertEqual(test.state, constants.QUEUED)
         test.update(state=constants.RUNNING)
-        
+
         self.assertEqual(test.state, constants.RUNNING)
         expected = 'UPDATE test SET updated=CURRENT_TIMESTAMP, state="%s", '+\
                    'test_started=CURRENT_TIMESTAMP, test_stopped=NULL '+\
@@ -44,7 +45,7 @@ class TestDBMethods(unittest.TestCase):
         test.state=constants.RUNNING
         self.assertEqual(test.state, constants.RUNNING)
         test.update(state=constants.COLLECTING)
-        
+
         self.assertEqual(test.state, constants.COLLECTING)
         expected = 'UPDATE test SET updated=CURRENT_TIMESTAMP, state="%s", '+\
                    'test_stopped=CURRENT_TIMESTAMP '+\
@@ -57,10 +58,10 @@ class TestRun(unittest.TestCase):
     def test_runTest_deletes_existing_node(self, mock_getSSHObject, mock_update):
         test = Test(change_num="change_num", project_name="project")
         test.node_id='existing_node'
-        
+
         nodepool = mock.Mock()
         nodepool.getNode.return_value = (None, None)
-        
+
         test.runTest(nodepool)
 
         nodepool.deleteNode.assert_called_once_with('existing_node')
@@ -107,7 +108,7 @@ class TestRun(unittest.TestCase):
 class TestRunning(unittest.TestCase):
     def test_isRunning_no_ip(self):
         test = Test(change_num="change_num", project_name="project")
-        
+
         self.assertFalse(test.isRunning())
 
     def test_isRunning_early_wait(self):
@@ -134,7 +135,7 @@ class TestRunning(unittest.TestCase):
         test.updated = datetime.datetime.now() - delta
         mock_execute_command.side_effect=Exception('SSH error getting PID')
         self.assertFalse(test.isRunning())
-        
+
         mock_update.assert_called_with(result='Aborted: Exception checking for pid')
         self.assertEqual(1, mock_execute_command.call_count)
 
@@ -145,7 +146,7 @@ class TestRunning(unittest.TestCase):
         test.node_ip = 'ip'
         delta = datetime.timedelta(seconds=350)
         test.updated = datetime.datetime.now() - delta
-        
+
         mock_execute_command.return_value = False
         self.assertFalse(test.isRunning())
         self.assertEqual(0, mock_update.call_count)
