@@ -91,7 +91,7 @@ class Test(db.Base):
         sql = 'SELECT * FROM test'
         if len(kwargs) > 0:
             sql += ' WHERE'
-            
+
             for key, value in kwargs.iteritems():
                 sql += ' %s="%s" AND'%(key, value)
 
@@ -107,7 +107,7 @@ class Test(db.Base):
             retRecords.append(test)
 
         return retRecords
-    
+
     @classmethod
     def retrieve(cls, db, project_name, change_num):
         sql = 'SELECT * FROM test WHERE'+\
@@ -116,7 +116,7 @@ class Test(db.Base):
         results = db.query(sql%(project_name, change_num))
         if len(results) == 0:
             return None
-        
+
         test = Test.fromRecord(results[0])
         test.db = db
 
@@ -134,7 +134,7 @@ class Test(db.Base):
     def update(self, **kwargs):
         if self.state == constants.RUNNING and kwargs.get('state', constants.RUNNING) != constants.RUNNING:
             kwargs['test_stopped'] = self.CURRENT_TIMESTAMP
-            
+
         if kwargs.get('state', None) == constants.RUNNING:
             kwargs['test_started'] = self.CURRENT_TIMESTAMP
             kwargs['test_stopped'] = self.NULL
@@ -192,13 +192,13 @@ class Test(db.Base):
         utils.execute_command('ssh$-q$-o$BatchMode=yes$-o$UserKnownHostsFile=/dev/null$-o$StrictHostKeyChecking=no$-i$%s$%s@%s$nohup bash /home/jenkins/run_tests_env < /dev/null > run_tests.log 2>&1 &'%(
                 Configuration().NODE_KEY, Configuration().NODE_USERNAME, node_ip), '$')
         self.update(state=constants.RUNNING)
-        
+
     def isRunning(self):
         if not self.node_ip:
             self.log.error('Checking job %s is running but no node IP address'%self)
             return False
         updated = time.mktime(self.updated.timetuple())
-        
+
         if (time.time() - updated < 300):
             # Allow 5 minutes for the gate PID to exist
             return True
@@ -209,7 +209,7 @@ class Test(db.Base):
             self.log.error('Timed out job %s (Running for %d seconds)'%(self, time.time()-updated))
             self.update(result='Aborted: Timed out')
             return False
-        
+
         try:
             success = utils.execute_command('ssh -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i %s %s@%s ps -p `cat /home/jenkins/run_tests.pid`'%(
                     Configuration().NODE_KEY, Configuration().NODE_USERNAME, self.node_ip), silent=True)
@@ -235,13 +235,13 @@ class Test(db.Base):
                       self.node_ip, Configuration().NODE_USERNAME,
                       Configuration().NODE_KEY,
                       upload=False)
-            
+
             if code != 0:
                 # This node is broken somehow... Mark it as aborted
                 if self.result and self.result.startswith('Aborted: '):
                     return self.result
                 return "Aborted: No result found"
-            
+
             return stdout.splitlines()[0]
         except Exception, e:
             self.log.exception(e)
