@@ -7,50 +7,84 @@ from osci import constants
 from osci import utils
 from osci.job import Test
 from osci.config import Configuration
+from osci.db import DB
+from osci import time_services
 
+
+PAST = datetime.datetime(1980, 1, 1, 1, 2, 3)
+NOW = datetime.datetime(2001, 1, 1, 1, 2, 3)
 
 class TestDBMethods(unittest.TestCase):
-    def test_update(self):
-        db = mock.Mock()
+
+    @mock.patch('osci.time_services.now')
+    def test_update(self, now):
+        now.return_value = NOW
+
+        db = DB('sqlite://')
+        db.create_schema()
+
         test = Test(change_num="change_num", project_name="project")
-        test.created='NOW'
-        test.db = db
+        with db.get_session() as session:
+            session.add(test)
+            test.created=PAST
+            test.db = db
+
         self.assertEqual(test.state, constants.QUEUED)
+
         test.update(state=constants.FINISHED)
 
-        self.assertEqual(test.state, constants.FINISHED)
-        expected = 'UPDATE test SET updated=CURRENT_TIMESTAMP, state="%s" '+\
-                   'WHERE project_name="project" AND change_num="change_num"'
-        db.execute.assert_called_once_with(expected%(constants.FINISHED))
+        with db.get_session() as session:
+            test, = session.query(Test).all()
 
-    def test_start_test_clears_time(self):
-        db = mock.Mock()
+        self.assertEquals(NOW, test.updated)
+        self.assertEquals(constants.FINISHED, test.state)
+        self.assertEquals("project", test.project_name)
+        self.assertEquals("change_num", test.change_num)
+
+    @mock.patch('osci.time_services.now')
+    def test_start_test_clears_time(self, now):
+        now.return_value = NOW
+        db = DB('sqlite://')
+        db.create_schema()
         test = Test(change_num="change_num", project_name="project")
-        test.created='NOW'
-        test.db = db
-        self.assertEqual(test.state, constants.QUEUED)
+        with db.get_session() as session:
+            session.add(test)
+            test.created=PAST
+            test.db = db
+
         test.update(state=constants.RUNNING)
 
-        self.assertEqual(test.state, constants.RUNNING)
-        expected = 'UPDATE test SET updated=CURRENT_TIMESTAMP, state="%s", '+\
-                   'test_started=CURRENT_TIMESTAMP, test_stopped=NULL '+\
-                   'WHERE project_name="project" AND change_num="change_num"'
-        db.execute.assert_called_once_with(expected%(constants.RUNNING))
+        with db.get_session() as session:
+            test, = session.query(Test).all()
+        self.assertEquals(test.updated, NOW)
+        self.assertEquals(test.state, constants.RUNNING)
+        self.assertEquals(test.test_started, NOW)
+        self.assertEquals(test.test_stopped, None)
+        self.assertEquals("project", test.project_name)
+        self.assertEquals("change_num", test.change_num)
 
-    def test_stop_test_sets_stop_time(self):
-        db = mock.Mock()
+    @mock.patch('osci.time_services.now')
+    def test_stop_test_sets_stop_time(self, now):
+        now.return_value = NOW
+        db = DB('sqlite://')
+        db.create_schema()
         test = Test(change_num="change_num", project_name="project")
-        test.created='NOW'
-        test.db = db
-        test.state=constants.RUNNING
-        self.assertEqual(test.state, constants.RUNNING)
+        with db.get_session() as session:
+            session.add(test)
+            test.created=PAST
+            test.db = db
+            test.state=constants.RUNNING
+
         test.update(state=constants.COLLECTING)
 
+        with db.get_session() as session:
+            test, = session.query(Test).all()
         self.assertEqual(test.state, constants.COLLECTING)
-        expected = 'UPDATE test SET updated=CURRENT_TIMESTAMP, state="%s", '+\
-                   'test_stopped=CURRENT_TIMESTAMP '+\
-                   'WHERE project_name="project" AND change_num="change_num"'
-        db.execute.assert_called_once_with(expected%(constants.COLLECTING))
+        self.assertEquals(NOW, test.updated)
+        self.assertEquals(constants.COLLECTING, test.state)
+        self.assertEquals(NOW, test.test_stopped)
+        self.assertEquals("project", test.project_name)
+        self.assertEquals("change_num", test.change_num)
 
 class TestRun(unittest.TestCase):
     @mock.patch.object(Test, 'update')
