@@ -92,14 +92,12 @@ class TestQueue():
             self.log.info('Result: %s (Err: %s)', fail_stdout, stderr)
                 
             self.log.info('Copying logs for %s', test)
-            result_path = os.path.join(Configuration().SFTP_COMMON, test.change_ref)
-            copy_logs(['%s/*'%tmpPath], os.path.join(Configuration().SFTP_BASE, result_path),
-                      Configuration().SFTP_HOST, Configuration().SFTP_USERNAME,
-                      Configuration().SFTP_KEY)
+            result_url = SwiftUploader().upload(tmpPath,
+                                                test.change_ref.replace('refs/changes/',''))
             self.log.info('Uploaded results for %s', test)
             test.update(result=result,
-                        logs_url='http://%s/'%result_path,
-                        report_url='http://%s/'%result_path,
+                        logs_url=result_url,
+                        report_url=result_url,
                         failed=fail_stdout)
             test.update(state=constants.COLLECTED)
         finally:
