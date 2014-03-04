@@ -6,6 +6,15 @@ from osci import job_queue
 from osci import job
 
 
+class FakeNodePool(object):
+    def __init__(self):
+        self.node_ids = []
+
+    def deleteNode(self, node_id):
+        assert node_id in self.node_ids, "node %s does not exist" % node_id
+        self.node_ids = [id for id in self.node_ids if id != node_id]
+
+
 class TestInit(unittest.TestCase):
     def test_nodepool_can_be_injected(self):
         q = job_queue.TestQueue(database="database", nodepool="nodepool")
@@ -17,9 +26,26 @@ class TestInit(unittest.TestCase):
         database = db.DB('sqlite://')
         database.create_schema()
 
-        logging.getLogger('sqlalchemy').setLevel(logging.DEBUG)
-
         q = job_queue.TestQueue(database=database, nodepool=None)
+        q.addTest('refs/changes/61/65261/7', 'project', 'commit')
+
+        test, = job.Test.getAllWhere(database)
+        self.assertTrue(test.queued)
+
+    def test_add_test_if_job_already_exists(self):
+        database = db.DB('sqlite://')
+        database.create_schema()
+        nodepool = FakeNodePool()
+
+        q = job_queue.TestQueue(database=database, nodepool=nodepool)
+        q.addTest('refs/changes/61/65261/7', 'project', 'commit')
+
+        session = database.get_session()
+        test, = session.query(job.Test).all()
+        test.node_id = 666
+        nodepool.node_ids.append(666)
+        session.commit()
+
         q.addTest('refs/changes/61/65261/7', 'project', 'commit')
 
         test, = job.Test.getAllWhere(database)

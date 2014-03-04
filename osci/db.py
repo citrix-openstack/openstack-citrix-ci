@@ -1,6 +1,7 @@
 import logging
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
 
 # Import these, so that other modules can import it from here
 from sqlalchemy import Column, Integer, String, DateTime, Text, UniqueConstraint
@@ -16,6 +17,10 @@ class DB(object):
         self.database_url = database_url
         self.engine = create_engine(self.database_url)
         self.conn = None
+        self.Session = sessionmaker(bind=self.engine)
+
+    def get_session(self):
+        return self.Session()
 
     def create_schema(self):
         Base.metadata.create_all(self.engine)
