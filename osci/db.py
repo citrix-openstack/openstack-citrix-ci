@@ -4,6 +4,7 @@ from sqlalchemy.ext.declarative import declarative_base
 
 # Import these, so that other modules can import it from here
 from sqlalchemy import Column, Integer, String, DateTime, Text, UniqueConstraint
+from sqlalchemy.exc import IntegrityError
 
 Base = declarative_base()
 
