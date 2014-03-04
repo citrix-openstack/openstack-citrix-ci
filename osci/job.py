@@ -10,11 +10,7 @@ from osci import instructions
 from osci import utils
 from osci import environment
 from osci import db
-
-
-class SQLLiteral(object):
-    def __init__(self, literal_value):
-        self.literal_value = literal_value
+from osci import time_services
 
 
 class Test(db.Base):
@@ -44,9 +40,6 @@ class Test(db.Base):
 
     log = logging.getLogger('citrix.test')
 
-    NULL = SQLLiteral('NULL')
-    CURRENT_TIMESTAMP = SQLLiteral('CURRENT_TIMESTAMP')
-
     def __init__(self, change_num=None, change_ref=None, project_name=None, commit_id=None):
         self.db = None
         self.project_name = project_name
@@ -61,100 +54,56 @@ class Test(db.Base):
         self.logs_url = None
         self.report_url = None
 
-    @classmethod
-    def fromRecord(cls, record):
-        retVal = Test()
-        i = 0
-        retVal.project_name = record[i]; i += 1
-        retVal.change_num = record[i]; i += 1
-        retVal.change_ref = record[i]; i += 1
-        retVal.state = record[i]; i += 1
-        retVal.created = record[i]; i += 1
-        retVal.commit_id = record[i]; i += 1
-        retVal.node_id = record[i]; i += 1
-        retVal.node_ip = record[i]; i += 1
-        retVal.result = record[i]; i += 1
-        retVal.logs_url = record[i]; i += 1
-        retVal.report_url = record[i]; i += 1
-        retVal.updated = record[i]; i += 1
-        retVal.test_started = record[i]; i += 1
-        retVal.test_stopped = record[i]; i += 1
-
-        return retVal
+    @property
+    def queued(self):
+        return self.state == constants.QUEUED
 
     @classmethod
     def getAllWhere(cls, db, **kwargs):
-        sql = 'SELECT * FROM test'
-        if len(kwargs) > 0:
-            sql += ' WHERE'
-            
-            for key, value in kwargs.iteritems():
-                sql += ' %s="%s" AND'%(key, value)
+        with db.get_session() as session:
+            return (
+                session
+                    .query(cls)
+                    .filter_by(**kwargs)
+                    .order_by(cls.updated).all()
+            )
 
-            assert sql[-4:] == " AND"
-            sql = sql[:-4] # Strip off the last AND
-        sql += ' ORDER BY updated ASC'
-        results = db.query(sql)
-
-        retRecords = []
-        for result in results:
-            test = Test.fromRecord(result)
-            test.db = db
-            retRecords.append(test)
-
-        return retRecords
-    
     @classmethod
     def retrieve(cls, db, project_name, change_num):
-        sql = 'SELECT * FROM test WHERE'+\
-              ' project_name="%s"'+\
-              ' AND change_num="%s"'
-        results = db.query(sql%(project_name, change_num))
-        if len(results) == 0:
-            return None
-        
-        test = Test.fromRecord(results[0])
-        test.db = db
+        with db.get_session() as session:
+            results = (
+                session
+                    .query(cls)
+                    .filter_by(project_name=project_name, change_num=change_num)
+                    .order_by(cls.updated).all()
+            )
+            if len(results) == 0:
+                return None
 
-        return test
-
-    def insert(self, db):
-        self.db = db
-        SQL = 'INSERT INTO test(project_name, change_num, change_ref, state, created, commit_id) '+\
-              'VALUES("%s","%s","%s","%s","%s","%s")'%(
-            self.project_name, self.change_num, self.change_ref,
-            self.state, self.created, self.commit_id)
-        self.db.execute(SQL)
-        self.log.info("Job for %s queued"%self.change_num)
+            return results[0]
 
     def update(self, **kwargs):
         if self.state == constants.RUNNING and kwargs.get('state', constants.RUNNING) != constants.RUNNING:
-            kwargs['test_stopped'] = self.CURRENT_TIMESTAMP
-            
+            kwargs['test_stopped'] = time_services.now()
+
         if kwargs.get('state', None) == constants.RUNNING:
-            kwargs['test_started'] = self.CURRENT_TIMESTAMP
-            kwargs['test_stopped'] = self.NULL
+            kwargs['test_started'] = time_services.now()
+            kwargs['test_stopped'] = None
+
+        kwargs['updated'] = time_services.now()
 
         self.update_database_record(**kwargs)
 
     def update_database_record(self, **kwargs):
-        sql = 'UPDATE test SET updated=CURRENT_TIMESTAMP,'
-        for key in sorted(kwargs.keys()):
-            value = kwargs[key]
-            if value in [self.NULL, self.CURRENT_TIMESTAMP]:
-                sql += ' %s=%s,'%(key, value.literal_value)
-            else:
-                sql += ' %s="%s",'%(key, value)
-            setattr(self, key, value)
+        with self.db.get_session() as session:
+            for name, value in kwargs.iteritems():
+                setattr(self, name, value)
 
-        assert sql[-1:] == ","
-        sql = sql[:-1] # Strip off the last ,
-        sql += ' WHERE project_name="%s" AND change_num="%s"'%(self.project_name, self.change_num)
-        self.db.execute(sql)
-
-    def delete(self):
-        SQL = 'DELETE FROM test WHERE project_name="%s" AND change_num="%s"'
-        self.db.execute(SQL%(self.project_name, self.change_num))
+    def delete(self, db):
+        with db.get_session() as session:
+            obj, = session.query(self.__class__).filter_by(
+                project_name=self.project_name, change_num=self.change_num).all()
+            session.delete(obj)
 
     def runTest(self, nodepool):
         if self.node_id:
@@ -188,13 +137,13 @@ class Test(db.Base):
         utils.execute_command('ssh$-q$-o$BatchMode=yes$-o$UserKnownHostsFile=/dev/null$-o$StrictHostKeyChecking=no$-i$%s$%s@%s$nohup bash /home/jenkins/run_tests_env < /dev/null > run_tests.log 2>&1 &'%(
                 Configuration().NODE_KEY, Configuration().NODE_USERNAME, node_ip), '$')
         self.update(state=constants.RUNNING)
-        
+
     def isRunning(self):
         if not self.node_ip:
             self.log.error('Checking job %s is running but no node IP address'%self)
             return False
         updated = time.mktime(self.updated.timetuple())
-        
+
         if (time.time() - updated < 300):
             # Allow 5 minutes for the gate PID to exist
             return True
@@ -205,7 +154,7 @@ class Test(db.Base):
             self.log.error('Timed out job %s (Running for %d seconds)'%(self, time.time()-updated))
             self.update(result='Aborted: Timed out')
             return False
-        
+
         try:
             success = utils.execute_command('ssh -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i %s %s@%s ps -p `cat /home/jenkins/run_tests.pid`'%(
                     Configuration().NODE_KEY, Configuration().NODE_USERNAME, self.node_ip), silent=True)
@@ -231,13 +180,13 @@ class Test(db.Base):
                       self.node_ip, Configuration().NODE_USERNAME,
                       Configuration().NODE_KEY,
                       upload=False)
-            
+
             if code != 0:
                 # This node is broken somehow... Mark it as aborted
                 if self.result and self.result.startswith('Aborted: '):
                     return self.result
                 return "Aborted: No result found"
-            
+
             return stdout.splitlines()[0]
         except Exception, e:
             self.log.exception(e)

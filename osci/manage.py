@@ -9,6 +9,7 @@ from pygerrit.error import GerritError
 from pygerrit.events import ErrorEvent, PatchsetCreatedEvent, CommentAddedEvent
 from threading import Event
 
+from osci.nodepool_manager import NodePool
 from osci.config import Configuration
 from osci.job_queue import TestQueue
 from osci import constants
@@ -87,7 +88,8 @@ def main():
     database = db.DB(Configuration().DATABASE_URL)
     database.create_schema()
 
-    queue = TestQueue(database)
+    nodepool = NodePool(Configuration().NODEPOOL_IMAGE)
+    queue = TestQueue(database=database, nodepool=nodepool)
 
     if options.show:
         table = PrettyTable()

@@ -8,17 +8,17 @@ import Queue
 
 from osci.db import DB
 from osci.config import Configuration
-from osci.nodepool_manager import NodePool
 from osci.job import Test
-from osci import constants 
+from osci import constants
 from osci.utils import execute_command, copy_logs, vote
 from osci.swift_upload import SwiftUploader
+
 
 class CollectResultsThread(threading.Thread):
     log = logging.getLogger('citrix.CollectResultsThread')
 
     collectTests = Queue.Queue()
-    
+
     def __init__(self, testQueue):
         threading.Thread.__init__(self, name='DeleteNodeThread')
         self.daemon = True
@@ -38,34 +38,40 @@ class CollectResultsThread(threading.Thread):
                 self.log.exception(e)
 
 
-class TestQueue():
+class TestQueue(object):
     log = logging.getLogger('citrix.TestQueue')
-    def __init__(self, database):
+    def __init__(self, database, nodepool):
         self.db = database
-        self.nodepool = NodePool(Configuration().NODEPOOL_IMAGE)
+        self.nodepool = nodepool
         self.collectResultsThread = None
+        self.tests_enabled = Configuration().get_bool('RUN_TESTS')
 
     def startCleanupThread(self):
         self.collectResultsThread = CollectResultsThread(self)
         self.collectResultsThread.start()
-        
+
     def addTest(self, change_ref, project_name, commit_id):
         change_num = change_ref.split('/')[3]
         existing = Test.retrieve(self.db, project_name, change_num)
         if existing:
             self.log.info('Test for previous patchset (%s) already queued - replacing'%(existing))
-            existing.delete()
+            existing.delete(self.db)
             self.nodepool.deleteNode(existing.node_id)
         test = Test(change_num, change_ref, project_name, commit_id)
-        test.insert(self.db)
+        with self.db.get_session() as session:
+            self.log.info("Job for %s queued"%test.change_num)
+            session.add(test)
 
     def triggerJobs(self):
+        for test in self.get_queued_enabled_tests():
+            test.runTest(self.nodepool)
+
+    def get_queued_enabled_tests(self):
         allTests = Test.getAllWhere(self.db, state=constants.QUEUED)
         self.log.info('%d tests queued...'%len(allTests))
-        if not Configuration().get_bool('RUN_TESTS'):
-            return
-        for test in allTests:
-            test.runTest(self.nodepool)
+        if self.tests_enabled:
+            return allTests
+        return []
 
     def uploadResults(self, test):
         tmpPath = tempfile.mkdtemp(suffix=test.change_num)
@@ -74,12 +80,12 @@ class TestQueue():
             if not result:
                 logging.info('No result obtained from %s', test)
                 return
-            
+
             code, fail_stdout, stderr = execute_command('grep$... FAIL$%s/run_tests.log'%tmpPath,
                                                         delimiter='$',
                                                         return_streams=True)
             self.log.info('Result: %s (Err: %s)', fail_stdout, stderr)
-                
+
             self.log.info('Copying logs for %s', test)
             result_url = SwiftUploader().upload(tmpPath,
                                                 test.change_ref.replace('refs/changes/',''))
@@ -103,7 +109,7 @@ class TestQueue():
         for test in allTests:
             if test.isRunning():
                 continue
-            
+
             test.update(state=constants.COLLECTING)
             self.log.info('Tests for %s are done! Collecting'%test)
             CollectResultsThread.collectTests.put(test)
@@ -117,7 +123,7 @@ class TestQueue():
                              test, test.result)
                 test.update(state=constants.FINISHED)
                 continue
-                
+
             if Configuration().get_bool('VOTE'):
                 message = Configuration().VOTE_MESSAGE % {'result':test.result,
                                                         'report': test.report_url,

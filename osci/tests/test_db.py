@@ -9,25 +9,30 @@ class TestDB(unittest.TestCase):
         database.create_schema()
 
         # Check that the table is created
-        self.assertEquals([], database.query("SELECT * FROM test"))
+        with database.get_session() as session:
+            self.assertEquals(
+                [], session.execute("SELECT * FROM test").fetchall())
 
     def test_execute_an_insert(self):
         database = db.DB("sqlite://")
 
-        database.execute("CREATE TABLE A (col VARCHAR)")
-        database.execute("INSERT INTO A VALUES (12)")
+        with database.get_session() as session:
+            session.execute("CREATE TABLE A (col VARCHAR)")
+            session.execute("INSERT INTO A VALUES (12)")
 
-        self.assertEquals([("12",)], database.query("SELECT * FROM A"))
+            self.assertEquals(
+                [("12",)], session.execute("SELECT * FROM A").fetchall())
 
     def test_mapping_includes_constraint(self):
         database = db.DB("sqlite://")
         database.create_schema()
 
-        database.execute(
-            "INSERT INTO test (project_name, change_num) VALUES"
-            "('proj', 'chang')")
-
-        with self.assertRaises(db.IntegrityError):
-            database.execute(
+        with database.get_session() as session:
+            session.execute(
                 "INSERT INTO test (project_name, change_num) VALUES"
                 "('proj', 'chang')")
+
+            with self.assertRaises(db.IntegrityError):
+                session.execute(
+                    "INSERT INTO test (project_name, change_num) VALUES"
+                    "('proj', 'chang')")
