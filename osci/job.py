@@ -61,10 +61,14 @@ class Test(db.Base):
         self.logs_url = None
         self.report_url = None
 
+    @property
+    def queued(self):
+        return self.state == constants.QUEUED
+
     @classmethod
     def fromRecord(cls, record):
         retVal = Test()
-        i = 0
+        i = 1
         retVal.project_name = record[i]; i += 1
         retVal.change_num = record[i]; i += 1
         retVal.change_ref = record[i]; i += 1
