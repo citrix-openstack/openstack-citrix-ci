@@ -67,30 +67,27 @@ class Test(db.Base):
 
     @classmethod
     def getAllWhere(cls, db, **kwargs):
-        session = db.get_session()
-        result = (
-            session
-                .query(cls)
-                .filter_by(**kwargs)
-                .order_by(cls.updated).all()
-        )
-        session.close()
-        return result
+        with db.get_session() as session:
+            return (
+                session
+                    .query(cls)
+                    .filter_by(**kwargs)
+                    .order_by(cls.updated).all()
+            )
 
     @classmethod
     def retrieve(cls, db, project_name, change_num):
-        session = db.get_session()
-        results = (
-            session
-                .query(cls)
-                .filter_by(project_name=project_name, change_num=change_num)
-                .order_by(cls.updated).all()
-        )
-        session.close()
-        if len(results) == 0:
-            return None
+        with db.get_session() as session:
+            results = (
+                session
+                    .query(cls)
+                    .filter_by(project_name=project_name, change_num=change_num)
+                    .order_by(cls.updated).all()
+            )
+            if len(results) == 0:
+                return None
 
-        return results[0]
+            return results[0]
 
     def update(self, **kwargs):
         if self.state == constants.RUNNING and kwargs.get('state', constants.RUNNING) != constants.RUNNING:

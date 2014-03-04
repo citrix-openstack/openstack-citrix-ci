@@ -58,10 +58,9 @@ class TestQueue(object):
             existing.delete(self.db)
             self.nodepool.deleteNode(existing.node_id)
         test = Test(change_num, change_ref, project_name, commit_id)
-        session = self.db.get_session()
-        session.add(test)
-        session.commit()
-        self.log.info("Job for %s queued"%test.change_num)
+        with self.db.get_session() as session:
+            self.log.info("Job for %s queued"%test.change_num)
+            session.add(test)
 
     def triggerJobs(self):
         for test in self.get_queued_enabled_tests():

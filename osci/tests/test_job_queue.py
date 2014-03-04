@@ -40,11 +40,11 @@ class TestInit(unittest.TestCase):
         q = job_queue.TestQueue(database=database, nodepool=nodepool)
         q.addTest('refs/changes/61/65261/7', 'project', 'commit')
 
-        session = database.get_session()
-        test, = session.query(job.Test).all()
-        test.node_id = 666
+        with database.get_session() as session:
+            test, = session.query(job.Test).all()
+            test.node_id = 666
+
         nodepool.node_ids.append(666)
-        session.commit()
 
         q.addTest('refs/changes/61/65261/7', 'project', 'commit')
 
