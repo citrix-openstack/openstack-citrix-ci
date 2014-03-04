@@ -66,27 +66,6 @@ class Test(db.Base):
         return self.state == constants.QUEUED
 
     @classmethod
-    def fromRecord(cls, record):
-        retVal = Test()
-        i = 1
-        retVal.project_name = record[i]; i += 1
-        retVal.change_num = record[i]; i += 1
-        retVal.change_ref = record[i]; i += 1
-        retVal.state = record[i]; i += 1
-        retVal.created = record[i]; i += 1
-        retVal.commit_id = record[i]; i += 1
-        retVal.node_id = record[i]; i += 1
-        retVal.node_ip = record[i]; i += 1
-        retVal.result = record[i]; i += 1
-        retVal.logs_url = record[i]; i += 1
-        retVal.report_url = record[i]; i += 1
-        retVal.updated = record[i]; i += 1
-        retVal.test_started = record[i]; i += 1
-        retVal.test_stopped = record[i]; i += 1
-
-        return retVal
-
-    @classmethod
     def getAllWhere(cls, db, **kwargs):
         session = db.get_session()
         result = (
@@ -100,17 +79,18 @@ class Test(db.Base):
 
     @classmethod
     def retrieve(cls, db, project_name, change_num):
-        sql = 'SELECT * FROM test WHERE'+\
-              ' project_name="%s"'+\
-              ' AND change_num="%s"'
-        results = db.query(sql%(project_name, change_num))
+        session = db.get_session()
+        results = (
+            session
+                .query(cls)
+                .filter_by(project_name=project_name, change_num=change_num)
+                .order_by(cls.updated).all()
+        )
+        session.close()
         if len(results) == 0:
             return None
 
-        test = Test.fromRecord(results[0])
-        test.db = db
-
-        return test
+        return results[0]
 
     def update(self, **kwargs):
         if self.state == constants.RUNNING and kwargs.get('state', constants.RUNNING) != constants.RUNNING:
@@ -137,9 +117,9 @@ class Test(db.Base):
         sql += ' WHERE project_name="%s" AND change_num="%s"'%(self.project_name, self.change_num)
         self.db.execute(sql)
 
-    def delete(self):
+    def delete(self, db):
         SQL = 'DELETE FROM test WHERE project_name="%s" AND change_num="%s"'
-        self.db.execute(SQL%(self.project_name, self.change_num))
+        db.execute(SQL%(self.project_name, self.change_num))
 
     def runTest(self, nodepool):
         if self.node_id:

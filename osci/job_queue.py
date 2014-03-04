@@ -55,7 +55,7 @@ class TestQueue(object):
         existing = Test.retrieve(self.db, project_name, change_num)
         if existing:
             self.log.info('Test for previous patchset (%s) already queued - replacing'%(existing))
-            existing.delete()
+            existing.delete(self.db)
             self.nodepool.deleteNode(existing.node_id)
         test = Test(change_num, change_ref, project_name, commit_id)
         session = self.db.get_session()
