@@ -40,10 +40,8 @@ class CollectResultsThread(threading.Thread):
 
 class TestQueue():
     log = logging.getLogger('citrix.TestQueue')
-    def __init__(self, host, username, password, database_name):
-        self.db = DB(host=host,
-                     user=username,
-                     passwd=password)
+    def __init__(self, database, database_name):
+        self.db = database
         self.initDB(database_name)
         self.nodepool = NodePool(Configuration().NODEPOOL_IMAGE)
         self.collectResultsThread = None
