@@ -13,7 +13,7 @@ class DB:
         self.passwd = passwd
         self.connect()
 
-    def initialise(self, database):
+    def create_database_and_schema(self, database):
         try:
             self.execute('USE %s'%database)
         except:

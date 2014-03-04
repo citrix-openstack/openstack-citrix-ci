@@ -51,7 +51,7 @@ class TestQueue():
         self.collectResultsThread.start()
         
     def initDB(self, database):
-        self.db.initialise(database)
+        self.db.create_database_and_schema(database)
 
     def addTest(self, change_ref, project_name, commit_id):
         change_num = change_ref.split('/')[3]
