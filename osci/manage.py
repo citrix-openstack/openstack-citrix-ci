@@ -87,8 +87,9 @@ def main():
     database = db.DB(
         host=Configuration().MYSQL_URL,
         user=Configuration().MYSQL_USERNAME,
-        password=Configuration().MYSQL_PASSWORD)
-    database.create_database_and_schema(Configuration().MYSQL_DB)
+        password=Configuration().MYSQL_PASSWORD,
+        database=Configuration().MYSQL_DB)
+    database.create_database_and_schema()
 
     queue = TestQueue(database)
 

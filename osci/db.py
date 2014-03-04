@@ -6,19 +6,20 @@ from osci import test
 
 class DB:
     log = logging.getLogger('citrix.db')
-    def __init__(self, host, user, passwd):
+    def __init__(self, host, user, passwd, database):
         self.conn = None
         self.host = host
         self.user = user
         self.passwd = passwd
+        self.database = database
         self.connect()
 
-    def create_database_and_schema(self, database):
+    def create_database_and_schema(self):
         try:
-            self.execute('USE %s'%database)
+            self.execute('USE %s'%self.database)
         except:
-            self.execute('CREATE DATABASE %s'%database)
-            self.execute('USE %s'%database)
+            self.execute('CREATE DATABASE %s'%self.database)
+            self.execute('USE %s'%self.database)
 
         test.Test.createTable(self)
 
