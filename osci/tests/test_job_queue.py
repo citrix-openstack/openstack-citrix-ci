@@ -50,3 +50,4 @@ class TestInit(unittest.TestCase):
 
         test, = job.Test.getAllWhere(database)
         self.assertTrue(test.queued)
+        self.assertEquals([], nodepool.node_ids)
