@@ -21,6 +21,16 @@ def get_content_encoding(filename):
         return 'gzip'
     return None
 
+def get_content_type(filename):
+    split_fn = filename.split('.')
+    if split_fn[-1] in ['gz']:
+        split_fn = split_fn[:-1]
+    if split_fn[-1] in ['txt', 'log', 'conf', 'sh']:
+        return 'text/plain'
+    if split_fn[-1] in ['html']:
+        return 'text/html'
+    return None
+
 def _html_start_stansa(prefix):
     return """
 <html>
@@ -54,7 +64,11 @@ class SwiftUploader(object):
         self.logger.info('Uploading %s to %s', source, target)
         chksum = pyrax.utils.get_checksum(source)
         content_encoding=get_content_encoding(source)
-        obj = container.upload_file(source, target, content_encoding=content_encoding, etag=chksum)
+        content_type=get_content_type(source)
+        
+        obj = container.upload_file(source, target,
+                                    content_encoding=content_encoding,
+                                    content_type=content_type, etag=chksum)
         if chksum != obj.etag:
             if attempt < Configuration().get_int('SWIFT_UPLOAD_ATTEMPTS'):
                 self.logger.error('Upload of %s to %s failed - retrying'%(source, target))
