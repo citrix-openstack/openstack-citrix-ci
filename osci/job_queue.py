@@ -8,7 +8,6 @@ import Queue
 
 from osci.db import DB
 from osci.config import Configuration
-from osci.nodepool_manager import NodePool
 from osci.job import Test
 from osci import constants
 from osci.utils import execute_command, copy_logs, vote
@@ -39,11 +38,11 @@ class CollectResultsThread(threading.Thread):
                 self.log.exception(e)
 
 
-class TestQueue():
+class TestQueue(object):
     log = logging.getLogger('citrix.TestQueue')
-    def __init__(self, database):
+    def __init__(self, database, nodepool):
         self.db = database
-        self.nodepool = NodePool(Configuration().NODEPOOL_IMAGE)
+        self.nodepool = nodepool
         self.collectResultsThread = None
 
     def startCleanupThread(self):
