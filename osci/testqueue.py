@@ -12,6 +12,7 @@ from osci.nodepool_manager import NodePool
 from osci.test import Test
 from osci import constants 
 from osci.utils import execute_command, copy_logs, vote
+from osci.swift_upload import SwiftUploader
 
 class CollectResultsThread(threading.Thread):
     log = logging.getLogger('citrix.CollectResultsThread')

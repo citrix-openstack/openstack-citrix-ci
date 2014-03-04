@@ -1,6 +1,7 @@
 import logging
 import optparse
 import os
+import sys
 
 from osci.config import Configuration
 import pyrax.exceptions 
@@ -66,7 +67,7 @@ class SwiftUploader(object):
         try: 
             pyrax.set_credentials(Configuration().SWIFT_USERNAME, Configuration().SWIFT_API_KEY)
         except pyrax.exceptions.AuthenticationFailed, e:
-            self.logging.exception(e)
+            self.logger.exception(e)
             raise
         cf = pyrax.cloudfiles
         
