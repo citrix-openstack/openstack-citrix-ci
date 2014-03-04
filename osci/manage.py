@@ -10,9 +10,9 @@ from pygerrit.events import ErrorEvent, PatchsetCreatedEvent, CommentAddedEvent
 from threading import Event
 
 from osci.config import Configuration
-from osci.testqueue import TestQueue
+from osci.job_queue import TestQueue
 from osci import constants
-from osci.test import Test
+from osci.job import Test
 from osci import utils
 from osci import db
 

@@ -6,7 +6,7 @@ import json
 
 from osci import constants
 from osci import utils
-from osci.test import Test
+from osci.job import Test
 from osci.config import Configuration
 
 class TestGerrit(unittest.TestCase):

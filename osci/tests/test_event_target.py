@@ -1,14 +1,14 @@
 import unittest
 import mock
 
-from osci import testqueue
+from osci import job_queue
 from osci import event_target
 from osci import gerrit
 
 
 class TestEventTarget(unittest.TestCase):
     def test_calling_database(self):
-        mock_queue = mock.Mock(spec=testqueue.TestQueue)
+        mock_queue = mock.Mock(spec=job_queue.TestQueue)
         target = event_target.QueueTarget(mock_queue)
 
         event = gerrit.FakeEvent()
