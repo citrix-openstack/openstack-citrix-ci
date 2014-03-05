@@ -62,12 +62,14 @@ class TestRunCommand(unittest.TestCase):
         self.parser.parse_args.return_value = SomeArgs()
 
     def test_logging_configured(self):
+        # pylint: disable=E
         scripts.run_command(create_somecommand())
         self.assertTrue(scripts.setup_logging.called)
 
     def test_parser_acquired(self):
         command = create_somecommand()
         scripts.run_command(command)
+        # pylint: disable=E
         scripts.get_parser_for.assert_called_once_with(command)
 
     def test_args_parsed(self):
