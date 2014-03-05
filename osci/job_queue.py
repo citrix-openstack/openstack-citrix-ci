@@ -109,12 +109,12 @@ class JobQueue(object):
         allJobs = Job.getAllWhere(self.db, state=constants.RUNNING)
         self.log.info('%d jobs running...'%len(allJobs))
         for job in allJobs:
-            if job.isRunning():
+            if job.isRunning(self.db):
                 continue
 
-            job.update(state=constants.COLLECTING)
+            job.update(self.db, state=constants.COLLECTING)
             self.log.info('Tests for %s are done! Collecting'%job)
-            CollectResultsThread.collectJobs.put(job)
+            self.collectResultsThread.collectJobs.put(job)
 
     def postResults(self):
         allJobs = Job.getAllWhere(self.db, state=constants.COLLECTED)

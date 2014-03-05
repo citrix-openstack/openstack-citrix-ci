@@ -31,7 +31,7 @@ class TestDBMethods(unittest.TestCase):
 
         self.assertEqual(job.state, constants.QUEUED)
 
-        job.update(state=constants.FINISHED)
+        job.update(db, state=constants.FINISHED)
 
         with db.get_session() as session:
             job, = session.query(Job).all()
@@ -52,7 +52,7 @@ class TestDBMethods(unittest.TestCase):
             job.created=PAST
             job.db = db
 
-        job.update(state=constants.RUNNING)
+        job.update(db, state=constants.RUNNING)
 
         with db.get_session() as session:
             job, = session.query(Job).all()
@@ -75,7 +75,7 @@ class TestDBMethods(unittest.TestCase):
             job.db = db
             job.state=constants.RUNNING
 
-        job.update(state=constants.COLLECTING)
+        job.update(db, state=constants.COLLECTING)
 
         with db.get_session() as session:
             job, = session.query(Job).all()
@@ -96,10 +96,10 @@ class TestRun(unittest.TestCase):
         nodepool = mock.Mock()
         nodepool.getNode.return_value = (None, None)
 
-        job.runJob(nodepool)
+        job.runJob("DB", nodepool)
 
         nodepool.deleteNode.assert_called_once_with('existing_node')
-        mock_update.assert_called_once_with(node_id=0)
+        mock_update.assert_called_once_with("DB", node_id=0)
         self.assertEqual(0, mock_getSSHObject.call_count)
 
     @mock.patch.object(Job, 'update')
@@ -111,10 +111,10 @@ class TestRun(unittest.TestCase):
         nodepool.getNode.return_value = ('new_node', 'ip')
         mock_getSSHObject.return_value = None
 
-        job.runJob(nodepool)
+        job.runJob("DB", nodepool)
 
         nodepool.deleteNode.assert_called_once_with('new_node')
-        mock_update.assert_called_once_with(node_id=0)
+        mock_update.assert_called_once_with("DB", node_id=0)
 
     @mock.patch.object(time, 'sleep')
     @mock.patch.object(Job, 'update')
@@ -129,13 +129,13 @@ class TestRun(unittest.TestCase):
         ssh = mock.Mock()
         mock_getSSHObject.return_value = ssh
 
-        job.runJob(nodepool)
+        job.runJob("DB", nodepool)
 
         # The node should not be deleted(!)
         self.assertEqual(0, nodepool.deleteNode.call_count)
         # Two calls - one to set the node ID and the other to set the state to running
-        update_call1 = mock.call(node_id='new_node', result='', node_ip='ip')
-        update_call2 = mock.call(state=constants.RUNNING)
+        update_call1 = mock.call("DB", node_id='new_node', result='', node_ip='ip')
+        update_call2 = mock.call("DB", state=constants.RUNNING)
         mock_update.assert_has_calls([update_call1, update_call2])
         ssh.close.assert_called()
 
@@ -143,13 +143,13 @@ class TestRunning(unittest.TestCase):
     def test_isRunning_no_ip(self):
         job = Job(change_num="change_num", project_name="project")
 
-        self.assertFalse(job.isRunning())
+        self.assertFalse(job.isRunning("DB"))
 
     def test_isRunning_early_wait(self):
         job = Job(change_num="change_num", project_name="project")
         job.node_ip = 'ip'
         job.updated = datetime.datetime.now()
-        self.assertTrue(job.isRunning())
+        self.assertTrue(job.isRunning("DB"))
 
     @mock.patch.object(Job, 'update')
     def test_isRunning_timeout(self, mock_update):
@@ -157,8 +157,8 @@ class TestRunning(unittest.TestCase):
         job.node_ip = 'ip'
         delta = datetime.timedelta(seconds=int(Configuration().MAX_RUNNING_TIME))
         job.updated = datetime.datetime.now() - delta
-        self.assertFalse(job.isRunning())
-        mock_update.assert_called_with(result='Aborted: Timed out')
+        self.assertFalse(job.isRunning("DB"))
+        mock_update.assert_called_with("DB", result='Aborted: Timed out')
 
     @mock.patch.object(Job, 'update')
     @mock.patch.object(utils, 'execute_command')
@@ -168,9 +168,9 @@ class TestRunning(unittest.TestCase):
         delta = datetime.timedelta(seconds=350)
         job.updated = datetime.datetime.now() - delta
         mock_execute_command.side_effect=Exception('SSH error getting PID')
-        self.assertFalse(job.isRunning())
+        self.assertFalse(job.isRunning("DB"))
 
-        mock_update.assert_called_with(result='Aborted: Exception checking for pid')
+        mock_update.assert_called_with("DB", result='Aborted: Exception checking for pid')
         self.assertEqual(1, mock_execute_command.call_count)
 
     @mock.patch.object(Job, 'update')
@@ -182,9 +182,9 @@ class TestRunning(unittest.TestCase):
         job.updated = datetime.datetime.now() - delta
 
         mock_execute_command.return_value = False
-        self.assertFalse(job.isRunning())
+        self.assertFalse(job.isRunning("DB"))
         self.assertEqual(0, mock_update.call_count)
 
         mock_execute_command.return_value = True
-        self.assertTrue(job.isRunning())
+        self.assertTrue(job.isRunning("DB"))
         self.assertEqual(0, mock_update.call_count)

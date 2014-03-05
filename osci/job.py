@@ -41,7 +41,6 @@ class Job(db.Base):
     log = logging.getLogger('citrix.job')
 
     def __init__(self, change_num=None, change_ref=None, project_name=None, commit_id=None):
-        self.db = None
         self.project_name = project_name
         self.change_num = change_num
         self.change_ref = change_ref
@@ -82,7 +81,7 @@ class Job(db.Base):
 
             return results[0]
 
-    def update(self, **kwargs):
+    def update(self, db, **kwargs):
         if self.state == constants.RUNNING and kwargs.get('state', constants.RUNNING) != constants.RUNNING:
             kwargs['test_stopped'] = time_services.now()
 
@@ -92,10 +91,10 @@ class Job(db.Base):
 
         kwargs['updated'] = time_services.now()
 
-        self.update_database_record(**kwargs)
+        self.update_database_record(db, **kwargs)
 
-    def update_database_record(self, **kwargs):
-        with self.db.get_session() as session:
+    def update_database_record(self, db, **kwargs):
+        with db.get_session() as session:
             for name, value in kwargs.iteritems():
                 setattr(self, name, value)
 
@@ -105,10 +104,10 @@ class Job(db.Base):
                 project_name=self.project_name, change_num=self.change_num).all()
             session.delete(obj)
 
-    def runJob(self, nodepool):
+    def runJob(self, db, nodepool):
         if self.node_id:
             nodepool.deleteNode(self.node_id)
-            self.update(node_id=0)
+            self.update(db, node_id=0)
 
         node_id, node_ip = nodepool.getNode()
 
@@ -119,10 +118,10 @@ class Job(db.Base):
         if not utils.testSSH(node_ip, Configuration().NODE_USERNAME, Configuration().NODE_KEY):
             self.log.error('Failed to get SSH object for node %s/%s.  Deleting node.'%(node_id, node_ip))
             nodepool.deleteNode(node_id)
-            self.update(node_id=0)
+            self.update(db, node_id=0)
             return
 
-        self.update(node_id=node_id, node_ip=node_ip, result='')
+        self.update(db, node_id=node_id, node_ip=node_ip, result='')
 
         cmd = 'echo %s >> run_tests_env' % ' '.join(instructions.check_out_testrunner())
         utils.execute_command('ssh -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i %s %s@%s %s'%(
@@ -136,9 +135,9 @@ class Job(db.Base):
         time.sleep(5)
         utils.execute_command('ssh$-q$-o$BatchMode=yes$-o$UserKnownHostsFile=/dev/null$-o$StrictHostKeyChecking=no$-i$%s$%s@%s$nohup bash /home/jenkins/run_tests_env < /dev/null > run_tests.log 2>&1 &'%(
                 Configuration().NODE_KEY, Configuration().NODE_USERNAME, node_ip), '$')
-        self.update(state=constants.RUNNING)
+        self.update(db, state=constants.RUNNING)
 
-    def isRunning(self):
+    def isRunning(self, db):
         if not self.node_ip:
             self.log.error('Checking job %s is running but no node IP address'%self)
             return False
@@ -152,7 +151,7 @@ class Job(db.Base):
         # this result will be over-written by retrieveResults
         if (time.time() - updated > Configuration().get_int('MAX_RUNNING_TIME')):
             self.log.error('Timed out job %s (Running for %d seconds)'%(self, time.time()-updated))
-            self.update(result='Aborted: Timed out')
+            self.update(db, result='Aborted: Timed out')
             return False
 
         try:
@@ -162,7 +161,7 @@ class Job(db.Base):
                           self, self.node_ip, success))
             return success
         except Exception, e:
-            self.update(result='Aborted: Exception checking for pid')
+            self.update(db, result='Aborted: Exception checking for pid')
             self.log.exception(e)
             return False
 
