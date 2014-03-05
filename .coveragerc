@@ -1,0 +1,8 @@
+[run]
+branch = True
+include = osci*
+source = osci
+
+[xml]
+show_missing = True
+precision = 0
