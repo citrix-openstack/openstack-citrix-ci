@@ -28,7 +28,7 @@ class Configuration(object):
         'NODE_USERNAME': 'jenkins',
         'NODE_KEY': '/usr/workspace/scratch/openstack/infrastructure.hg/keys/nodepool',
         'POLL': '30',
-        'PROJECT_CONFIG': 'openstack-dev/sandbox,openstack/nova,openstack/tempest,openstack-dev/devstack',
+        'PROJECT_CONFIG': 'openstack/nova,openstack/tempest,openstack-dev/devstack',
         'RUN_TESTS': 'True',
         'RECHECK_REGEXP': '^(citrix recheck|xenserver recheck|recheck bug|recheck nobug).*',
         'REVIEW_REPO_NAME': 'review',
