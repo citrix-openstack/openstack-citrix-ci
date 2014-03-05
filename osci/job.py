@@ -141,7 +141,10 @@ class Job(db.Base):
         if not self.node_ip:
             self.log.error('Checking job %s is running but no node IP address'%self)
             return False
+
+        # pylint: disable=E
         updated = time.mktime(self.updated.timetuple())
+        # pylint: enable=E
 
         if (time.time() - updated < 300):
             # Allow 5 minutes for the gate PID to exist

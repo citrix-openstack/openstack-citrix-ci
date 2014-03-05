@@ -26,10 +26,16 @@ class FakePatchSet(object):
 
 
 class EventFilter(object):
+    __metaclass__ = abc.ABCMeta
+
     def is_event_matching_criteria(self, event):
         if event is None:
             return False
         return self._is_event_matching_criteria(event)
+
+    @abc.abstractmethod
+    def _is_event_matching_criteria(self, event):
+        pass
 
 
 class Client(object):

@@ -6,3 +6,4 @@ mysql-python
 pyrax
 coverage
 sqlalchemy
+pylint
