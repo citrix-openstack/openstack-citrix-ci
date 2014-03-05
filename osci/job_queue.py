@@ -1,8 +1,6 @@
 import os
 import logging
-import tempfile
 import paramiko
-import shutil
 import threading
 import Queue
 
@@ -12,6 +10,7 @@ from osci.job import Job
 from osci import constants
 from osci.utils import execute_command, copy_logs, vote
 from osci.swift_upload import SwiftUploader
+from osci import filesystem_services
 
 
 class CollectResultsThread(threading.Thread):
@@ -40,11 +39,12 @@ class CollectResultsThread(threading.Thread):
 
 class JobQueue(object):
     log = logging.getLogger('citrix.JobQueue')
-    def __init__(self, database, nodepool):
+    def __init__(self, database, nodepool, filesystem):
         self.db = database
         self.nodepool = nodepool
         self.collectResultsThread = None
         self.jobs_enabled = Configuration().get_bool('RUN_TESTS')
+        self.filesystem = filesystem
 
     def startCleanupThread(self):
         self.collectResultsThread = CollectResultsThread(self)
@@ -74,7 +74,8 @@ class JobQueue(object):
         return []
 
     def uploadResults(self, job):
-        tmpPath = tempfile.mkdtemp(suffix=job.change_num)
+        tmpPath = self.filesystem.mkdtemp(suffix=job.change_num)
+
         try:
             result = job.retrieveResults(tmpPath)
             if not result:
@@ -96,7 +97,7 @@ class JobQueue(object):
                         failed=fail_stdout)
             job.update(state=constants.COLLECTED)
         finally:
-            shutil.rmtree(tmpPath)
+            self.filesystem.rmtree(tmpPath)
         self.nodepool.deleteNode(job.node_id)
         job.update(node_id=0)
 
