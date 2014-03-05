@@ -6,6 +6,8 @@ from osci import db
 from osci import job_queue
 from osci import job
 from osci import filesystem_services
+from osci import utils
+from osci import swift_upload
 
 
 class FakeNodePool(object):
@@ -25,16 +27,25 @@ class QueueHelpers(object):
         return job_queue.JobQueue(
             database=database,
             nodepool=FakeNodePool(),
-            filesystem=filesystem_services.FakeFilesystem())
+            filesystem=filesystem_services.FakeFilesystem(),
+            uploader=None,
+            executor=None)
 
 
 class TestInit(unittest.TestCase, QueueHelpers):
     def test_nodepool_can_be_injected(self):
         q = job_queue.JobQueue(
-            database="database", nodepool="nodepool", filesystem=None)
+            database="database",
+            nodepool="nodepool",
+            filesystem="filesystem",
+            uploader="uploader",
+            executor="executor")
 
         self.assertEquals("database", q.db)
         self.assertEquals("nodepool", q.nodepool)
+        self.assertEquals("filesystem", q.filesystem)
+        self.assertEquals("uploader", q.uploader)
+        self.assertEquals("executor", q.executor)
 
     def test_add_test(self):
         q = self._make_queue()
@@ -85,3 +96,27 @@ class TestUploadResults(unittest.TestCase, QueueHelpers):
         q.uploadResults(t)
 
         self.assertEquals({}, q.filesystem.contents)
+
+    def test_job_has_results(self):
+        q = self._make_queue()
+        q.executor = mock.Mock(spec=utils.execute_command)
+        q.executor.return_value = ("code", "fail_stdout", "fail_stderr")
+        q.uploader = mock.Mock(spec=swift_upload.SwiftUploader)
+        q.nodepool.node_ids = [12]
+
+        t = mock.Mock(spec=job.Job)
+        t.node_id = 12
+        t.retrieveResults.return_value = "jobresult"
+        t.change_num = 98
+        t.change_ref = 'refs/changes/1/2/3'
+        t.id = 33
+
+        q.uploadResults(t)
+
+        self.assertEquals(
+            {}, q.filesystem.contents, msg="Filesystem cleaned up")
+        self.assertEquals(
+            [], q.nodepool.node_ids, msg="Node deleted")
+        q.uploader.upload.assert_called_once_with(
+            "RANDOMPATH-98", "1/2/3"
+        )

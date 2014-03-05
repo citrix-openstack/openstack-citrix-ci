@@ -9,7 +9,6 @@ from osci.config import Configuration
 from osci.job import Job
 from osci import constants
 from osci.utils import execute_command, copy_logs, vote
-from osci.swift_upload import SwiftUploader
 from osci import filesystem_services
 
 
@@ -39,12 +38,14 @@ class CollectResultsThread(threading.Thread):
 
 class JobQueue(object):
     log = logging.getLogger('citrix.JobQueue')
-    def __init__(self, database, nodepool, filesystem):
+    def __init__(self, database, nodepool, filesystem, uploader, executor):
         self.db = database
         self.nodepool = nodepool
         self.collectResultsThread = None
         self.jobs_enabled = Configuration().get_bool('RUN_TESTS')
         self.filesystem = filesystem
+        self.uploader = uploader
+        self.executor = executor
 
     def startCleanupThread(self):
         self.collectResultsThread = CollectResultsThread(self)
@@ -82,19 +83,19 @@ class JobQueue(object):
                 logging.info('No result obtained from %s', job)
                 return
 
-            code, fail_stdout, stderr = execute_command('grep$... FAIL$%s/run_tests.log'%tmpPath,
-                                                        delimiter='$',
-                                                        return_streams=True)
+            code, fail_stdout, stderr = self.executor('grep$... FAIL$%s/run_tests.log'%tmpPath,
+                                                      delimiter='$',
+                                                      return_streams=True)
             self.log.info('Result: %s (Err: %s)', fail_stdout, stderr)
 
             self.log.info('Copying logs for %s', job)
-            result_url = SwiftUploader().upload(tmpPath,
+            result_url = self.uploader.upload(tmpPath,
                                                 job.change_ref.replace('refs/changes/',''))
             self.log.info('Uploaded results for %s', job)
             job.update(result=result,
-                        logs_url=result_url,
-                        report_url=result_url,
-                        failed=fail_stdout)
+                       logs_url=result_url,
+                       report_url=result_url,
+                       failed=fail_stdout)
             job.update(state=constants.COLLECTED)
         finally:
             self.filesystem.rmtree(tmpPath)

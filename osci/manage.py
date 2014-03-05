@@ -16,6 +16,8 @@ from osci import constants
 from osci.job import Job
 from osci import utils
 from osci import db
+from osci import filesystem_services
+from osci import swift_upload
 
 
 def is_event_matching_criteria(event):
@@ -88,8 +90,12 @@ def main():
     database = db.DB(Configuration().DATABASE_URL)
     database.create_schema()
 
-    nodepool = NodePool(Configuration().NODEPOOL_IMAGE)
-    queue = JobQueue(database=database, nodepool=nodepool)
+    queue = JobQueue(
+        database=database,
+        nodepool=NodePool(Configuration().NODEPOOL_IMAGE),
+        filesystem=filesystem_services.RealFilesystem(),
+        uploader=swift_upload.SwiftUploader(),
+        executor=utils.execute_command)
 
     if options.show:
         table = PrettyTable()

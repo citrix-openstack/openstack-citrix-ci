@@ -5,10 +5,10 @@ import shutil
 class FakeFilesystem(object):
     def __init__(self):
         self.contents = {}
-        self.counter = 1
 
     def mkdtemp(self, suffix):
         path = 'RANDOMPATH-{0}'.format(suffix)
+        assert path not in self.contents, ""
         self.contents[path] = ""
         return path
 
