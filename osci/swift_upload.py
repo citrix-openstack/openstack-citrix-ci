@@ -31,8 +31,7 @@ def get_content_type(filename):
         return 'text/html'
     return None
 
-def _html_start_stansa(prefix):
-    return """
+_START_STANSA = """
 <html>
  <head>
   <title>Test results for %(prefix)s</title>
@@ -41,18 +40,22 @@ def _html_start_stansa(prefix):
   <h1>Test results for %(prefix)s</ht>
   <table>
   <tr><th>Name</th><th>Size</th></tr>
-""" % locals()
-
-def _html_file_stansa(filename, size):
-    return """
-  <tr><td><a href="%(filename)s">%(filename)s</td><td>%(size)s</td></tr>
-""" % locals()
-
-def _html_end_stansa():
-    return """  </table>
+"""
+_FILE_STANSA = """
+  <tr><td><a href="%(filename)s">%(filename)s</a></td><td>%(size)s</td></tr>
+"""
+_END_STANSA = """  </table>
  </body>
 </html>
-""" % locals()
+"""
+def _html_start_stansa(prefix):
+    return _START_STANSA % locals()
+
+def _html_file_stansa(filename, size):
+    return _FILE_STANSA % locals()
+
+def _html_end_stansa():
+    return _END_STANSA % locals()
 
 class UploadException(Exception):
     pass
