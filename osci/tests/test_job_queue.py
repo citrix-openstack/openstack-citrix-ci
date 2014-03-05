@@ -17,7 +17,7 @@ class FakeNodePool(object):
 
 class TestInit(unittest.TestCase):
     def test_nodepool_can_be_injected(self):
-        q = job_queue.TestQueue(database="database", nodepool="nodepool")
+        q = job_queue.JobQueue(database="database", nodepool="nodepool")
 
         self.assertEquals("database", q.db)
         self.assertEquals("nodepool", q.nodepool)
@@ -26,30 +26,30 @@ class TestInit(unittest.TestCase):
         database = db.DB('sqlite://')
         database.create_schema()
 
-        q = job_queue.TestQueue(database=database, nodepool=None)
-        q.addTest('refs/changes/61/65261/7', 'project', 'commit')
+        q = job_queue.JobQueue(database=database, nodepool=None)
+        q.addJob('refs/changes/61/65261/7', 'project', 'commit')
 
-        test, = job.Test.getAllWhere(database)
-        self.assertTrue(test.queued)
+        j, = job.Job.getAllWhere(database)
+        self.assertTrue(j.queued)
 
     def test_add_test_if_job_already_exists(self):
         database = db.DB('sqlite://')
         database.create_schema()
         nodepool = FakeNodePool()
 
-        q = job_queue.TestQueue(database=database, nodepool=nodepool)
-        q.addTest('refs/changes/61/65261/7', 'project', 'commit')
+        q = job_queue.JobQueue(database=database, nodepool=nodepool)
+        q.addJob('refs/changes/61/65261/7', 'project', 'commit')
 
         with database.get_session() as session:
-            test, = session.query(job.Test).all()
-            test.node_id = 666
+            j, = session.query(job.Job).all()
+            j.node_id = 666
 
         nodepool.node_ids.append(666)
 
-        q.addTest('refs/changes/61/65261/7', 'project', 'commit')
+        q.addJob('refs/changes/61/65261/7', 'project', 'commit')
 
-        test, = job.Test.getAllWhere(database)
-        self.assertTrue(test.queued)
+        j, = job.Job.getAllWhere(database)
+        self.assertTrue(j.queued)
         self.assertEquals([], nodepool.node_ids)
 
     def test_get_queued_items_non_empty(self):
@@ -57,27 +57,27 @@ class TestInit(unittest.TestCase):
         database.create_schema()
         nodepool = FakeNodePool()
 
-        q = job_queue.TestQueue(database=database, nodepool=nodepool)
-        q.addTest('refs/changes/61/65261/7', 'project', 'commit')
+        q = job_queue.JobQueue(database=database, nodepool=nodepool)
+        q.addJob('refs/changes/61/65261/7', 'project', 'commit')
 
-        self.assertEquals(1, len(q.get_queued_enabled_tests()))
+        self.assertEquals(1, len(q.get_queued_enabled_jobs()))
 
     def test_get_queued_items_non_empty_disabled(self):
         database = db.DB('sqlite://')
         database.create_schema()
         nodepool = FakeNodePool()
 
-        q = job_queue.TestQueue(database=database, nodepool=nodepool)
-        q.tests_enabled = False
-        q.addTest('refs/changes/61/65261/7', 'project', 'commit')
+        q = job_queue.JobQueue(database=database, nodepool=nodepool)
+        q.jobs_enabled = False
+        q.addJob('refs/changes/61/65261/7', 'project', 'commit')
 
-        self.assertEquals(0, len(q.get_queued_enabled_tests()))
+        self.assertEquals(0, len(q.get_queued_enabled_jobs()))
 
     def test_get_queued_items_empty(self):
         database = db.DB('sqlite://')
         database.create_schema()
         nodepool = FakeNodePool()
 
-        q = job_queue.TestQueue(database=database, nodepool=nodepool)
+        q = job_queue.JobQueue(database=database, nodepool=nodepool)
 
-        self.assertEquals(0, len(q.get_queued_enabled_tests()))
+        self.assertEquals(0, len(q.get_queued_enabled_jobs()))

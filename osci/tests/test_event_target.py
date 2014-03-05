@@ -8,7 +8,7 @@ from osci import gerrit
 
 class TestEventTarget(unittest.TestCase):
     def test_calling_database(self):
-        mock_queue = mock.Mock(spec=job_queue.TestQueue)
+        mock_queue = mock.Mock(spec=job_queue.JobQueue)
         target = event_target.QueueTarget(mock_queue)
 
         event = gerrit.FakeEvent()
@@ -18,7 +18,7 @@ class TestEventTarget(unittest.TestCase):
 
         target.consume_event(event)
 
-        mock_queue.addTest.assert_called_once_with(
+        mock_queue.addJob.assert_called_once_with(
             "event.patchset.ref",
             "event.change.project",
             "event.patchset.revision"

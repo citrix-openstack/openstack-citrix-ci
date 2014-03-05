@@ -11,9 +11,9 @@ from threading import Event
 
 from osci.nodepool_manager import NodePool
 from osci.config import Configuration
-from osci.job_queue import TestQueue
+from osci.job_queue import JobQueue
 from osci import constants
-from osci.job import Test
+from osci.job import Job
 from osci import utils
 from osci import db
 
@@ -39,7 +39,7 @@ def is_project_configured(submitted_project):
 def queue_event(queue, event):
     logging.info("patchset values : %s", event)
     if is_project_configured(event.change.project):
-        queue.addTest(event.patchset.ref,
+        queue.addJob(event.patchset.ref,
                       event.change.project,
                       event.patchset.revision)
 
@@ -54,7 +54,7 @@ def get_parser():
                       "e.g. refs/changes/55/7155/1")
     parser.add_option('--list', dest='list',
                       action='store_true', default=False,
-                      help="List the tests recorded by the system")
+                      help="List the jobs recorded by the system")
     parser.add_option('--states', dest='states',
                       action='store', default=None,
                       help="(Use with --list): States to list")
@@ -66,7 +66,7 @@ def get_parser():
                       help="List jobs less than this many hours old")
     parser.add_option('--show', dest='show',
                       action='store_true', default=False,
-                      help="Show details for a specific test")
+                      help="Show details for a specific job")
 
     return parser
 
@@ -89,7 +89,7 @@ def main():
     database.create_schema()
 
     nodepool = NodePool(Configuration().NODEPOOL_IMAGE)
-    queue = TestQueue(database=database, nodepool=nodepool)
+    queue = JobQueue(database=database, nodepool=nodepool)
 
     if options.show:
         table = PrettyTable()
@@ -97,14 +97,14 @@ def main():
                                  'state', 'created', 'Commit id', 'Node id',
                                  'Node ip', 'Result', 'Logs', 'Report',
                                  'Updated', 'Gerrit URL'])
-        test = Test.getAllWhere(queue.db, change_ref=options.change_ref)[0]
-        url = 'https://review.openstack.org/%s'%test.change_num
+        job = Job.getAllWhere(queue.db, change_ref=options.change_ref)[0]
+        url = 'https://review.openstack.org/%s'%job.change_num
         table.add_column('Value',
-                         [test.project_name, test.change_num, test.change_ref,
-                          constants.STATES[test.state], test.created,
-                          test.commit_id, test.node_id, test.node_ip,
-                          test.result, test.logs_url, test.report_url,
-                          test.updated, url])
+                         [job.project_name, job.change_num, job.change_ref,
+                          constants.STATES[job.state], job.created,
+                          job.commit_id, job.node_id, job.node_ip,
+                          job.result, job.logs_url, job.report_url,
+                          job.updated, url])
         table.align = 'l'
         print table
         return
@@ -114,7 +114,7 @@ def main():
         patch_details = utils.get_patchset_details(change_num, patchset)
         # Verify we got the right patch back
         assert patch_details['ref'] == options.change_ref
-        queue.addTest(patch_details['ref'], patch_details['project'], patch_details['revision'])
+        queue.addJob(patch_details['ref'], patch_details['project'], patch_details['revision'])
         return
 
     if options.list:
@@ -122,40 +122,40 @@ def main():
                              "Age (hours)", "Duration"])
         table.align = 'l'
         now = time.time()
-        all_tests = Test.getAllWhere(queue.db)
+        all_jobs = Job.getAllWhere(queue.db)
         state_dict = {}
         result_dict = {}
         if options.states and len(options.states) > 0:
             states = options.states.split(',')
         else:
             states = None
-        for test in all_tests:
-            updated = time.mktime(test.updated.timetuple())
+        for job in all_jobs:
+            updated = time.mktime(job.updated.timetuple())
             age_hours = (now - updated) / 3600
             if options.recent:
                 if age_hours > int(options.recent):
                     continue
-            state_count = state_dict.get(constants.STATES[test.state], 0)+1
-            state_dict[constants.STATES[test.state]] = state_count
-            result_count = result_dict.get(test.result, 0)+1
-            result_dict[test.result] = result_count
+            state_count = state_dict.get(constants.STATES[job.state], 0)+1
+            state_dict[constants.STATES[job.state]] = state_count
+            result_count = result_dict.get(job.result, 0)+1
+            result_dict[job.result] = result_count
 
-            if states and constants.STATES[test.state] not in states:
+            if states and constants.STATES[job.state] not in states:
                 continue
-            if test.node_id:
-                node_ip = test.node_ip
+            if job.node_id:
+                node_ip = job.node_ip
             else:
-                node_ip = '(%s)'%test.node_ip
+                node_ip = '(%s)'%job.node_ip
             age = '%.02f' % (age_hours)
             duration = '-'
 
-            if test.test_started and test.test_stopped:
-                started = time.mktime(test.test_started.timetuple())
-                stopped = time.mktime(test.test_stopped.timetuple())
+            if job.test_started and job.test_stopped:
+                started = time.mktime(job.test_started.timetuple())
+                stopped = time.mktime(job.test_stopped.timetuple())
                 if started < stopped:
                     duration = "%.02f"%((stopped - started)/3600)
-            table.add_row([test.project_name, test.change_ref,
-                           constants.STATES[test.state], node_ip, test.result,
+            table.add_row([job.project_name, job.change_ref,
+                           constants.STATES[job.state], node_ip, job.result,
                            age, duration])
         print state_dict
         print result_dict
@@ -167,30 +167,30 @@ def main():
                              "Duration", "URL"])
         table.align = 'l'
         now = time.time()
-        all_tests = Test.getAllWhere(queue.db)
-        for test in all_tests:
-            if not test.result or (test.result != 'Failed' and
-                                   test.result.find('Aborted') != 0):
+        all_jobs = Job.getAllWhere(queue.db)
+        for job in all_jobs:
+            if not job.result or (job.result != 'Failed' and
+                                   job.result.find('Aborted') != 0):
                 continue
-            updated = time.mktime(test.updated.timetuple())
+            updated = time.mktime(job.updated.timetuple())
             age_hours = (now - updated) / 3600
             if options.recent:
                 if age_hours > int(options.recent):
                     continue
-            if test.node_id:
-                node_ip = test.node_ip
+            if job.node_id:
+                node_ip = job.node_ip
             else:
-                node_ip = '(%s)'%test.node_ip
+                node_ip = '(%s)'%job.node_ip
             age = '%.02f' % (age_hours)
             duration = '-'
 
-            if test.test_started and test.test_stopped:
-                started = time.mktime(test.test_started.timetuple())
-                stopped = time.mktime(test.test_stopped.timetuple())
+            if job.test_started and job.test_stopped:
+                started = time.mktime(job.test_started.timetuple())
+                stopped = time.mktime(job.test_stopped.timetuple())
                 duration = "%.02f"%((stopped - started)/3600)
-            table.add_row([test.project_name, test.change_num,
-                           constants.STATES[test.state], test.result, age,
-                           duration, test.logs_url])
+            table.add_row([job.project_name, job.change_num,
+                           constants.STATES[job.state], job.result, age,
+                           duration, job.logs_url])
         print table
         return
 

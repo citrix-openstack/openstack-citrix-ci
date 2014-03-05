@@ -13,7 +13,7 @@ from osci import db
 from osci import time_services
 
 
-class Test(db.Base):
+class Job(db.Base):
     __tablename__ = 'test'
 
     __table_args__ = (
@@ -38,7 +38,7 @@ class Test(db.Base):
     failed = db.Column('failed', db.Text())
 
 
-    log = logging.getLogger('citrix.test')
+    log = logging.getLogger('citrix.job')
 
     def __init__(self, change_num=None, change_ref=None, project_name=None, commit_id=None):
         self.db = None
@@ -105,7 +105,7 @@ class Test(db.Base):
                 project_name=self.project_name, change_num=self.change_num).all()
             session.delete(obj)
 
-    def runTest(self, nodepool):
+    def runJob(self, nodepool):
         if self.node_id:
             nodepool.deleteNode(self.node_id)
             self.update(node_id=0)
@@ -114,7 +114,7 @@ class Test(db.Base):
 
         if not node_id:
             return
-        self.log.info("Running test for %s on %s/%s"%(self, node_id, node_ip))
+        self.log.info("Running job for %s on %s/%s"%(self, node_id, node_ip))
 
         if not utils.testSSH(node_ip, Configuration().NODE_USERNAME, Configuration().NODE_KEY):
             self.log.error('Failed to get SSH object for node %s/%s.  Deleting node.'%(node_id, node_ip))

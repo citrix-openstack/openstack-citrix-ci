@@ -22,6 +22,6 @@ class QueueTarget(EventTarget):
         self.queue = queue
 
     def consume_event(self, event):
-        self.queue.addTest(event.patchset.ref,
-                           event.change.project,
-                           event.patchset.revision)
+        self.queue.addJob(event.patchset.ref,
+                          event.change.project,
+                          event.patchset.revision)
