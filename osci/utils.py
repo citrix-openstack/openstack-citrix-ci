@@ -19,53 +19,56 @@ def mkdir_recursive(target, target_dir):
         target.mkdir(target_dir)
 
 def copy_logs(source_masks, target_dir, host, username, key_filename, upload=True):
-    logger = logging.getLogger('citrix.copy_logs')
     ssh = getSSHObject(host, username, key_filename)
     sftp = ssh.open_sftp()
     try:
-        if upload:
-            source = os
-            target = sftp
-            sftp_method = sftp.put
-        else:
-            source = sftp
-            target = os
-            sftp_method = sftp.get
-        
-        mkdir_recursive(target, target_dir)
-
-        existing_files = target.listdir(target_dir)
-        for filename in existing_files:
-            target.remove(os.path.join(target_dir, filename))
-
-        for source_mask in source_masks:
-            try:
-                source_dir = os.path.dirname(source_mask)
-                source_glob = os.path.basename(source_mask)
-                for filename in source.listdir(source_dir):
-                    if not fnmatch.fnmatch(filename, source_glob):
-                        continue
-                    source_file = os.path.join(source_dir, filename)
-                    if S_ISREG(source.stat(source_file).st_mode):
-                        logger.info('Copying %s to %s', source_file, target_dir)
-                        try:
-                            sftp_method(os.path.join(source_dir, filename),
-                                        os.path.join(target_dir, filename))
-                        except IOError, e:
-                            logger.exception(e)
-            except IOError, e:
-                if e.errno != errno.ENOENT:
-                    raise e
-                logger.exception(e)
-                # Ignore this exception to try again on the next directory
+        copy_logs_sftp(sftp, source_masks, target_dir, host, username, key_filename, upload=True)
     finally:
         sftp.close()
         ssh.close()
+    
+def copy_logs_sftp(sftp, source_masks, target_dir, host, username, key_filename, upload=True):
+    logger = logging.getLogger('citrix.copy_logs')
+    if upload:
+        source = os
+        target = sftp
+        sftp_method = sftp.put
+    else:
+        source = sftp
+        target = os
+        sftp_method = sftp.get
+        
+    mkdir_recursive(target, target_dir)
+
+    existing_files = target.listdir(target_dir)
+    for filename in existing_files:
+        target.remove(os.path.join(target_dir, filename))
+
+    for source_mask in source_masks:
+        try:
+            source_dir = os.path.dirname(source_mask)
+            source_glob = os.path.basename(source_mask)
+            for filename in source.listdir(source_dir):
+                if not fnmatch.fnmatch(filename, source_glob):
+                    continue
+                source_file = os.path.join(source_dir, filename)
+                if S_ISREG(source.stat(source_file).st_mode):
+                    logger.info('Copying %s to %s', source_file, target_dir)
+                    try:
+                        sftp_method(os.path.join(source_dir, filename),
+                                    os.path.join(target_dir, filename))
+                    except IOError, e:
+                        logger.exception(e)
+        except IOError, e:
+            if e.errno != errno.ENOENT:
+                raise
+            logger.exception(e)
+            # Ignore this exception to try again on the next directory
 
 def execute_command(command, delimiter=' ', silent=False, return_streams=False):
     command_as_array = command.split(delimiter)
     if not silent:
-        logging.debug("Executing command: %s", command_as_array) 
+        logging.debug("Executing command: %s", command_as_array)
     p = subprocess.Popen(command_as_array, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     output, errors = p.communicate()
     if p.returncode != 0:
@@ -81,12 +84,9 @@ def execute_command(command, delimiter=' ', silent=False, return_streams=False):
     return p.returncode == 0
 
 def testSSH(ip, username, key_filename):
-    ssh = getSSHObject(ip, username, key_filename)
-    if not ssh:
-        return False
-    ssh.close()
-    return True
-
+    return execute_command('ssh -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null '+\
+                                 '-o StrictHostKeyChecking=no -i %s %s@%s /bin/true'%(
+                                     key_filename, username, ip))
 
 def getSSHObject(ip, username, key_filename):
     if ip is None:
@@ -94,14 +94,8 @@ def getSSHObject(ip, username, key_filename):
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.WarningPolicy())
     key = paramiko.RSAKey.from_private_key_file(key_filename)
-    try:
-        ssh.connect(ip, username=username, pkey=key)
-        return ssh
-    except Exception, e:
-        logging.error('Unable to connect to %s using %s and key %s',
-                      ip, username, key_filename)
-        logging.exception(e)
-        return None
+    ssh.connect(ip, username=username, pkey=key)
+    return ssh
 
 def vote(commitid, vote_num, message):
     #ssh -p 29418 review.example.com gerrit review -m '"Test failed on MegaTestSystem <http://megatestsystem.org/tests/1234>"'

@@ -119,15 +119,13 @@ class TestRun(unittest.TestCase):
     @mock.patch.object(time, 'sleep')
     @mock.patch.object(Job, 'update')
     @mock.patch.object(utils, 'execute_command')
-    @mock.patch.object(utils, 'getSSHObject')
-    def test_runTest_happy_path(self, mock_getSSHObject, mock_execute_command,
+    def test_runTest_happy_path(self, mock_execute_command,
                                 mock_update, mock_sleep):
         job = Job(change_num="change_num", project_name="project")
 
         nodepool = mock.Mock()
         nodepool.getNode.return_value = ('new_node', 'ip')
         ssh = mock.Mock()
-        mock_getSSHObject.return_value = ssh
 
         job.runJob("DB", nodepool)
 
@@ -137,7 +135,6 @@ class TestRun(unittest.TestCase):
         update_call1 = mock.call("DB", node_id='new_node', result='', node_ip='ip')
         update_call2 = mock.call("DB", state=constants.RUNNING)
         mock_update.assert_has_calls([update_call1, update_call2])
-        ssh.close.assert_called()
 
 class TestRunning(unittest.TestCase):
     def test_isRunning_no_ip(self):
