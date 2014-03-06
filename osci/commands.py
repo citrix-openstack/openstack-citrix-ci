@@ -136,6 +136,7 @@ class WatchGerrit(object):
     DEFAULT_SLEEP_TIMEOUT = 5
 
     def __init__(self, env=None):
+        logging.getLogger('sqlalchemy').setLevel(logging.DEBUG)
         env = env or dict()
         self.database = None
         self.queue = None
@@ -154,7 +155,8 @@ class WatchGerrit(object):
             )
 
         self.gerrit_client = gerrit.get_client(env)
-        self.event_filter = gerrit.DummyFilter(True)
+        self.event_filter = gerrit.get_filter(env)
+        log.info("Event filter: %s", self.event_filter)
         self.event_target = event_target.get_target(dict(env, queue=self.queue))
         self.sleep_timeout = env.get(
             'sleep_timeout', self.DEFAULT_SLEEP_TIMEOUT)
@@ -163,8 +165,9 @@ class WatchGerrit(object):
     @classmethod
     def parameters(cls):
         return [
-            'gerrit_client', 'event_target', 'gerrit_host',
-            'gerrit_port', 'gerrit_username', 'dburl']
+            'gerrit_client', 'gerrit_host', 'event_target',
+            'gerrit_port', 'gerrit_username', 'dburl', 'comment_re',
+            'projects']
 
     def get_event(self):
         return self.gerrit_client.get_event()
@@ -184,6 +187,7 @@ class WatchGerrit(object):
     def do_event_handling(self):
         event = self.get_filtered_event()
         if event:
+            log.info("Consuming event [%s]", event)
             self.consume_event(event)
 
     def __call__(self):
