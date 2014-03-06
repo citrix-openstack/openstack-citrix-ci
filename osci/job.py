@@ -65,8 +65,8 @@ class Job(db.Base):
             )
 
     @classmethod
-    def retrieve(cls, db, project_name, change_num):
-        with db.get_session() as session:
+    def retrieve(cls, database, project_name, change_num):
+        with database.get_session() as session:
             results = (
                 session
                     .query(cls)
