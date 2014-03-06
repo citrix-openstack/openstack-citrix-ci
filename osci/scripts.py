@@ -38,3 +38,6 @@ def run_tests():
 
 def watch_gerrit():
     sys.exit(run_command(commands.WatchGerrit))
+
+def create_dbschema():
+    sys.exit(run_command(commands.CreateDBSchema))

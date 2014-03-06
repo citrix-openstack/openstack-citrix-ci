@@ -24,3 +24,16 @@ class TestEventTarget(unittest.TestCase):
             "event.patchset.revision"
         )
 
+
+class TestEventTargetFactory(unittest.TestCase):
+    def test_event_target_factory(self):
+        obj = event_target.get_target(dict(event_target="fake"))
+        self.assertEquals(event_target.FakeTarget, obj.__class__)
+
+    def test_queue_target_database(self):
+        obj = event_target.get_target(
+            dict(event_target="queue", queue="queue_impl")
+        )
+
+        self.assertEquals("queue_impl", obj.queue)
+

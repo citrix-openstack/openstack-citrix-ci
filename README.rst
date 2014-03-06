@@ -321,3 +321,16 @@ Run the tests on a node:
 .. code-block:: bash
 
     osci-run-tests print jenkins NODE refs/changes/41/72341/6
+
+
+## Create database schema
+
+```bash
+$ osci-create-dbschema sqlite:///test.db
+```
+
+## Start gerrit watch
+
+```bash
+$ osci-watch-gerrit pygerrit queue review.openstack.org 29418 mate-lakat sqlite:///test.db
+```
