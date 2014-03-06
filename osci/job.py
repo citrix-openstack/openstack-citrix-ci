@@ -45,13 +45,14 @@ class Job(db.Base):
         self.change_num = change_num
         self.change_ref = change_ref
         self.state = constants.QUEUED
-        self.created = datetime.datetime.now()
+        self.created = time_services.now()
         self.commit_id = commit_id
         self.node_id = None
         self.node_ip = None
         self.result = None
         self.logs_url = None
         self.report_url = None
+        self.updated = self.created
 
     @property
     def queued(self):
