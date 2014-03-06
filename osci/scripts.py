@@ -2,6 +2,7 @@ import sys
 import argparse
 import logging
 from osci import commands
+from osci import config
 
 
 def get_parser_for(command):
@@ -12,11 +13,12 @@ def get_parser_for(command):
     return parser
 
 
-def run_command(cmd_class):
+def run_command(cmd_class, env=None):
     setup_logging()
-    parser = get_parser_for(cmd_class)
-    env = parser.parse_args()
-    command = cmd_class(vars(env))
+    if env is None:
+        parser = get_parser_for(cmd_class)
+        env = vars(parser.parse_args())
+    command = cmd_class(env)
     return command()
 
 
@@ -37,7 +39,21 @@ def run_tests():
 
 
 def watch_gerrit():
-    sys.exit(run_command(commands.WatchGerrit))
+    c = config.Configuration()
+    env = dict(
+        gerrit_client='pygerrit',
+        gerrit_host=c.get('GERRIT_HOST'),
+        event_target='queue',
+        gerrit_port=c.get('GERRIT_PORT'),
+        gerrit_username=c.get('GERRIT_USERNAME'),
+        dburl=c.get('DATABASE_URL'),
+        comment_re=c.get('RECHECK_REGEXP'),
+        projects=c.get('PROJECT_CONFIG'),
+    )
+    sys.exit(run_command(commands.WatchGerrit, env=env))
 
 def create_dbschema():
-    sys.exit(run_command(commands.CreateDBSchema))
+    env = dict(
+        dburl=config.Configuration().get('DATABASE_URL')
+    )
+    sys.exit(run_command(commands.CreateDBSchema, env=env))

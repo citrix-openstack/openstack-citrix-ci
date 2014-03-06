@@ -323,14 +323,25 @@ Run the tests on a node:
     osci-run-tests print jenkins NODE refs/changes/41/72341/6
 
 
+## Configuration
+
+Place your configuration file to `~/osci.config`. For the defaults, consult
+`osci.configuration`. A recommended default:
+
+```
+DATABASE_URL=sqlite:///test.db
+GERRIT_HOST=review.openstack.org
+GERRIT_USERNAME=enter-your-launchpad-name-here
+```
+
 ## Create database schema
 
 ```bash
-$ osci-create-dbschema sqlite:///test.db
+$ osci-create-dbschema
 ```
 
 ## Start gerrit watch
 
 ```bash
-$ osci-watch-gerrit pygerrit review.openstack.org queue 29418 mate-lakat sqlite:///test.db '.*' 'openstack/nova'
+$ osci-watch-gerrit
 ```
