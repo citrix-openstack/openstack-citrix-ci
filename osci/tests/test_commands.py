@@ -149,8 +149,25 @@ class TestWatchGerrit(unittest.TestCase):
         self.assertEquals('Client', cmd.gerrit_client)
 
     def test_event_target(self):
-        cmd = commands.WatchGerrit()
+        cmd = commands.WatchGerrit(dict(event_target='fake'))
         self.assertEquals('FakeTarget', cmd.event_target.__class__.__name__)
+
+    @mock.patch('osci.db.DB')
+    def test_database_created(self, dbclass):
+        dbclass.return_value = 'dbimpl'
+        cmd = commands.WatchGerrit(dict(event_target='fake', dburl='someurl'))
+        dbclass.assert_called_once_with('someurl')
+        self.assertEquals('dbimpl', cmd.database)
+
+    @mock.patch('osci.db.DB')
+    def test_queue_created(self, dbclass):
+        dbclass.return_value = 'dbimpl'
+        cmd = commands.WatchGerrit(dict(event_target='fake', dburl='someurl'))
+        dbclass.assert_called_once_with('someurl')
+        self.assertEquals('dbimpl', cmd.database)
+
+        self.assertIsNotNone(cmd.queue)
+        self.assertEquals('dbimpl', cmd.queue.db)
 
     def test_passing_gerrit_parameters(self):
         cmd = commands.WatchGerrit(dict(
@@ -184,13 +201,13 @@ class TestWatchGerrit(unittest.TestCase):
         self.assertEquals(
             [
                 'gerrit_client', 'event_target', 'gerrit_host',
-                'gerrit_port', 'gerrit_username'
+                'gerrit_port', 'gerrit_username', 'dburl'
             ],
             cmd.parameters()
         )
 
     def test_consume_event(self):
-        cmd = commands.WatchGerrit()
+        cmd = commands.WatchGerrit(dict(event_target='fake'))
         cmd.consume_event('EVENT')
 
         self.assertEquals(

@@ -1,6 +1,5 @@
 import abc
 
-
 class EventTarget(object):
     __metaclass__ = abc.ABCMeta
 
@@ -25,3 +24,11 @@ class QueueTarget(EventTarget):
         self.queue.addJob(event.patchset.ref,
                           event.change.project,
                           event.patchset.revision)
+
+
+def get_target(env):
+    target = env.get('event_target')
+    if "fake" == target:
+        return FakeTarget()
+    elif "queue" == target:
+        return QueueTarget(env['queue'])

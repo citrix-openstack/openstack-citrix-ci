@@ -1,4 +1,5 @@
 import time
+import logging
 
 from osci import node
 from osci import executor
@@ -7,6 +8,11 @@ from osci import instructions
 from osci import environment
 from osci import gerrit
 from osci import event_target
+from osci import db
+from osci import job_queue
+
+
+log = logging.getLogger(__name__)
 
 
 class GetDom0Logs(object):
@@ -110,22 +116,55 @@ class RunTests(object):
         )
 
 
+
+class CreateDBSchema(object):
+    def __init__(self, env=None):
+        logging.getLogger('sqlalchemy').setLevel(logging.DEBUG)
+        env = env or dict()
+        self.database = None
+        self.database = db.DB(env.get('dburl'))
+
+    @classmethod
+    def parameters(cls):
+        return ['dburl']
+
+    def __call__(self):
+        self.database.create_schema()
+
+
 class WatchGerrit(object):
     DEFAULT_SLEEP_TIMEOUT = 5
 
     def __init__(self, env=None):
         env = env or dict()
+        self.database = None
+        self.queue = None
+
+        dburl = env.get('dburl')
+
+        if dburl:
+            log.info('dburl=%s', dburl)
+            self.database = db.DB(dburl)
+            self.queue = job_queue.JobQueue(
+                database=self.database,
+                nodepool=None,
+                filesystem=None,
+                uploader=None,
+                executor=None
+            )
+
         self.gerrit_client = gerrit.get_client(env)
         self.event_filter = gerrit.DummyFilter(True)
-        self.event_target = event_target.FakeTarget()
+        self.event_target = event_target.get_target(dict(env, queue=self.queue))
         self.sleep_timeout = env.get(
             'sleep_timeout', self.DEFAULT_SLEEP_TIMEOUT)
+
 
     @classmethod
     def parameters(cls):
         return [
             'gerrit_client', 'event_target', 'gerrit_host',
-            'gerrit_port', 'gerrit_username']
+            'gerrit_port', 'gerrit_username', 'dburl']
 
     def get_event(self):
         return self.gerrit_client.get_event()
