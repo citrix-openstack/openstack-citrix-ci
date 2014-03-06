@@ -98,5 +98,11 @@ class TestRunCommand(unittest.TestCase):
             scripts.run_command(create_somecommand())
         )
 
+    def test_env_can_be_injected(self):
+        collector = []
+        scripts.run_command(create_somecommand(collector), env=dict(k=1))
+
+        self.assertEquals(dict(env=dict(k=1)), collector[0])
+
     def tearDown(self):
         [patcher.stop() for patcher in self.patchers]
