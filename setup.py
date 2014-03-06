@@ -15,6 +15,7 @@ setup(
             'osci-watch-gerrit = osci.scripts:watch_gerrit',
             'osci-upload = osci.swift_upload:main',
             'osci-create-dbschema = osci.scripts:create_dbschema',
+            'osci-view = osci.reports:main',
         ]
     }
 )
