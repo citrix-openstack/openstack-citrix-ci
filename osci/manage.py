@@ -96,6 +96,7 @@ def main():
         filesystem=filesystem_services.RealFilesystem(),
         uploader=swift_upload.SwiftUploader(),
         executor=utils.execute_command)
+    queue.startCleanupThreads()
 
     if options.show:
         table = PrettyTable()

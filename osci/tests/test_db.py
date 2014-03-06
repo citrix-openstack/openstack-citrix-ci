@@ -23,16 +23,3 @@ class TestDB(unittest.TestCase):
             self.assertEquals(
                 [("12",)], session.execute("SELECT * FROM A").fetchall())
 
-    def test_mapping_includes_constraint(self):
-        database = db.DB("sqlite://")
-        database.create_schema()
-
-        with database.get_session() as session:
-            session.execute(
-                "INSERT INTO test (project_name, change_num) VALUES"
-                "('proj', 'chang')")
-
-            with self.assertRaises(db.IntegrityError):
-                session.execute(
-                    "INSERT INTO test (project_name, change_num) VALUES"
-                    "('proj', 'chang')")

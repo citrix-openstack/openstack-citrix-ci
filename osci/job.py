@@ -16,10 +16,6 @@ from osci import time_services
 class Job(db.Base):
     __tablename__ = 'test'
 
-    __table_args__ = (
-        db.UniqueConstraint('project_name', 'change_num'),
-    )
-
     id = db.Column(db.Integer, primary_key=True)
     project_name = db.Column('project_name', db.String(50))
     change_num = db.Column('change_num', db.String(10))
@@ -74,13 +70,12 @@ class Job(db.Base):
             results = (
                 session
                     .query(cls)
-                    .filter_by(project_name=project_name, change_num=change_num)
+                    .filter(db.and_(cls.project_name==project_name,
+                                    cls.change_num==change_num,
+                                    cls.state != constants.OBSOLETE))
                     .order_by(cls.updated).all()
             )
-            if len(results) == 0:
-                return None
-
-            return results[0]
+            return results
 
     def update(self, db, **kwargs):
         if self.state == constants.RUNNING and kwargs.get('state', constants.RUNNING) != constants.RUNNING:

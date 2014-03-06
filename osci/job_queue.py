@@ -4,12 +4,46 @@ import paramiko
 import threading
 import Queue
 
-from osci.db import DB
+from osci.db import DB, and_
 from osci.config import Configuration
 from osci.job import Job
 from osci import constants
 from osci.utils import execute_command, copy_logs, vote
 from osci import filesystem_services
+
+
+class DeleteNodeThread(threading.Thread):
+    log = logging.getLogger('citrix.DeleteNodeThread')
+
+    deleteNodeQueue = Queue.Queue()
+
+    def __init__(self, jobQueue):
+        threading.Thread.__init__(self, name='DeleteNodeThread')
+        self.jobQueue = jobQueue
+        self.pool = self.jobQueue.nodepool
+        self.daemon = True
+
+    def add_missing_jobs(self):
+        with self.jobQueue.db.get_session() as session:
+            finished_node_jobs = session.query(Job).filter(and_(Job.state.in_([constants.COLLECTED,
+                                                                               constants.FINISHED,
+                                                                               constants.OBSOLETE]),
+                                                           Job.node_id != 0))
+
+            for job in finished_node_jobs:
+                self.deleteNodeQueue.put(job)
+
+    def run(self):
+        while True:
+            try:
+                job = self.deleteNodeQueue.get(block=True, timeout=30)
+                job.update(self.jobQueue.db, node_id=0)
+                self.pool.deleteNode(job.node_id)
+                self.add_missing_jobs()
+            except Queue.Empty, e:
+                pass
+            except Exception, e:
+                self.log.exception(e)
 
 
 class CollectResultsThread(threading.Thread):
@@ -21,15 +55,21 @@ class CollectResultsThread(threading.Thread):
         threading.Thread.__init__(self, name='DeleteNodeThread')
         self.daemon = True
         self.jobQueue = jobQueue
-        collectingJobs = Job.getAllWhere(jobQueue.db, state=constants.COLLECTING)
+        self.add_missing_jobs()
+
+    def add_missing_jobs(self):
+        collectingJobs = Job.getAllWhere(self.jobQueue.db,
+                                         state=constants.COLLECTING)
         for job in collectingJobs:
-            self.collectJobs.put(job)
+            if job not in self.collectJobs:
+                self.collectJobs.put(job)
 
     def run(self):
         while True:
             try:
                 job = self.collectJobs.get(block=True, timeout=30)
                 self.jobQueue.uploadResults(job)
+                self.add_missing_jobs()
             except Queue.Empty, e:
                 pass
             except Exception, e:
@@ -42,22 +82,26 @@ class JobQueue(object):
         self.db = database
         self.nodepool = nodepool
         self.collectResultsThread = None
+        self.deleteNodeThread = None
         self.jobs_enabled = Configuration().get_bool('RUN_TESTS')
         self.filesystem = filesystem
         self.uploader = uploader
         self.executor = executor
 
-    def startCleanupThread(self):
-        self.collectResultsThread = CollectResultsThread(self)
-        self.collectResultsThread.start()
+    def startCleanupThreads(self):
+        if self.collectResultsThread is None:
+            self.collectResultsThread = CollectResultsThread(self)
+            self.collectResultsThread.start()
+        if self.deleteNodeThread is None:
+            self.deleteNodeThread = DeleteNodeThread(self)
+            self.deleteNodeThread.start()
 
     def addJob(self, change_ref, project_name, commit_id):
         change_num = change_ref.split('/')[3]
-        existing = Job.retrieve(self.db, project_name, change_num)
-        if existing:
+        existing_jobs = Job.retrieve(self.db, project_name, change_num)
+        for existing in existing_jobs:
             self.log.info('Job for previous patchset (%s) already queued - replacing'%(existing))
-            existing.delete(self.db)
-            self.nodepool.deleteNode(existing.node_id)
+            existing.update(self.db, state=constants.OBSOLETE)
         job = Job(change_num, change_ref, project_name, commit_id)
         with self.db.get_session() as session:
             self.log.info("Job for %s queued"%job.change_num)
@@ -92,20 +136,16 @@ class JobQueue(object):
             result_url = self.uploader.upload(tmpPath,
                                                 job.change_ref.replace('refs/changes/',''))
             self.log.info('Uploaded results for %s', job)
-            job.update(result=result,
+            job.update(self.db, result=result,
                        logs_url=result_url,
                        report_url=result_url,
                        failed=fail_stdout)
-            job.update(state=constants.COLLECTED)
+            job.update(self.db, state=constants.COLLECTED)
         finally:
             self.filesystem.rmtree(tmpPath)
-        self.nodepool.deleteNode(job.node_id)
-        job.update(node_id=0)
 
     def processResults(self):
-        if self.collectResultsThread is None:
-            self.log.info('Starting collect thread')
-            self.startCleanupThread()
+        self.startCleanupThreads()
         allJobs = Job.getAllWhere(self.db, state=constants.RUNNING)
         self.log.info('%d jobs running...'%len(allJobs))
         for job in allJobs:
@@ -123,7 +163,7 @@ class JobQueue(object):
             if job.result.find('Aborted') == 0:
                 logging.info('Not voting on aborted job %s (%s)',
                              job, job.result)
-                job.update(state=constants.FINISHED)
+                job.update(self.db, state=constants.FINISHED)
                 continue
 
             if Configuration().get_bool('VOTE'):
@@ -135,5 +175,5 @@ class JobQueue(object):
                     logging.info('Posting results for %s (%s)',
                                  job, job.result)
                     vote(job.commit_id, vote_num, message)
-                    job.update(state=constants.FINISHED)
+                    job.update(self.db, state=constants.FINISHED)
 

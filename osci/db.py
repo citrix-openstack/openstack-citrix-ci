@@ -8,6 +8,8 @@ from sqlalchemy.orm import sessionmaker, scoped_session
 from sqlalchemy import Column, Integer, String, DateTime, Text, UniqueConstraint
 from sqlalchemy.exc import IntegrityError
 
+from sqlalchemy import and_, or_
+
 Base = declarative_base()
 
 
