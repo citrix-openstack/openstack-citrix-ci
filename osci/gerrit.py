@@ -1,5 +1,6 @@
 import abc
 import logging
+import re
 
 from pygerrit import client
 from pygerrit import events
@@ -17,6 +18,7 @@ class FakeEvent(object):
 class FakeChange(object):
     def __init__(self):
         self.project = None
+        self.branch = None
 
 
 class FakePatchSet(object):
@@ -31,6 +33,7 @@ class EventFilter(object):
     def is_event_matching_criteria(self, event):
         if event is None:
             return False
+
         return self._is_event_matching_criteria(event)
 
     @abc.abstractmethod
@@ -53,7 +56,6 @@ class Client(object):
         pass
 
     def get_event(self):
-        log.debug("Request for event")
         event = self._get_event()
         log.debug("Returning event [%s]", event)
         return event
@@ -107,58 +109,81 @@ class DummyFilter(object):
 
 
 class CommentMatcher(EventFilter):
-    def __init__(self, matcher):
-        self.matcher = matcher
+    def __init__(self, regexp):
+        self.regexp = regexp
+        self.matcher = re.compile(regexp)
 
     def _is_event_matching_criteria(self, event):
         comment = event.comment
         if self.matcher.match(comment):
             return True
 
+    def __str__(self):
+        return 'comment matches {0}'.format(self.matcher)
+
 
 class ChangeMatcher(EventFilter):
     def __init__(self, projects):
         self.projects = projects
+        self.branch = "master"
 
     def _is_event_matching_criteria(self, event):
-        if event.change.branch == "master":
+        if event.change.branch == self.branch:
             if event.change.project in self.projects:
                 return True
         return False
 
+    def __str__(self):
+        return 'branch=={0}, project in [{1}]'.format(
+            self.branch, ",".join(self.projects))
 
-class EventTypeFilter(object):
+
+class EventTypeFilter(EventFilter):
     def __init__(self, klass):
         self.klass = klass
 
-    def is_event_matching_criteria(self, event):
+    def _is_event_matching_criteria(self, event):
         if isinstance(event, self.klass):
             return True
 
+    def __str__(self):
+        return 'event is {0}'.format(self.klass.__name__)
 
-class And(object):
+
+class And(EventFilter):
     def __init__(self, filters):
         self.filters = filters
 
-    def is_event_matching_criteria(self, event):
+    def _is_event_matching_criteria(self, event):
         for fltr in self.filters or [DummyFilter(False)]:
             if not fltr.is_event_matching_criteria(event):
                 return False
         return True
 
+    def __str__(self):
+        return ' AND '.join(["(%s)" % f for f in self.filters])
 
-class Or(object):
+
+class Or(EventFilter):
     def __init__(self, filters):
         self.filters = filters
 
-    def is_event_matching_criteria(self, event):
+    def _is_event_matching_criteria(self, event):
         for fltr in self.filters or [DummyFilter(False)]:
             if fltr.is_event_matching_criteria(event):
                 return True
         return False
 
+    def __str__(self):
+        return ' OR '.join(["(%s)" % f for f in self.filters])
 
-def get_filter(projects, comment_re):
+
+def get_filter(env):
+    comment_re = env and env.get('comment_re')
+    projects = env.get('projects').split(',') if env and env.get('projects') else None
+    if not all([comment_re, projects]):
+        return DummyFilter(True)
+
     return Or([
         And([
             EventTypeFilter(events.CommentAddedEvent),

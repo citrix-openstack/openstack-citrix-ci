@@ -27,7 +27,8 @@ class TestCommentMatcher(unittest.TestCase):
         matcher = mock.Mock()
         matcher.match.return_value = True
 
-        event_matcher = gerrit.CommentMatcher(matcher)
+        event_matcher = gerrit.CommentMatcher('')
+        event_matcher.matcher = matcher
 
         self.assertTrue(
             event_matcher.is_event_matching_criteria(
@@ -39,7 +40,8 @@ class TestCommentMatcher(unittest.TestCase):
         matcher = mock.Mock()
         matcher.match.return_value = False
 
-        event_matcher = gerrit.CommentMatcher(matcher)
+        event_matcher = gerrit.CommentMatcher('')
+        event_matcher.matcher = matcher
 
         self.assertFalse(
             event_matcher.is_event_matching_criteria(
@@ -48,7 +50,7 @@ class TestCommentMatcher(unittest.TestCase):
         matcher.match.assert_called_once_with('COMMENT')
 
     def test_none_event(self):
-        event_matcher = gerrit.CommentMatcher(None)
+        event_matcher = gerrit.CommentMatcher('')
         self.assertFalse(event_matcher.is_event_matching_criteria(None))
 
 
@@ -196,3 +198,47 @@ class TestPyGerritClient(unittest.TestCase):
         client.connect()
 
         client.impl.gerrit_version.assert_called_once_with()
+
+
+class TestGetFilter(unittest.TestCase):
+
+    @mock.patch('re.compile')
+    def test_get_filter(self, compile):
+        compile.return_value = 'compiled'
+        f = gerrit.get_filter(
+            dict(projects='p1,p2,p3', comment_re='comment_re'))
+
+        self.assertEquals('compiled', f.filters[0].filters[1].matcher)
+        self.assertEquals(['p1', 'p2', 'p3'], f.filters[0].filters[2].projects)
+
+        self.assertEquals(
+            '('
+                '(event is CommentAddedEvent)'
+                ' AND (comment matches compiled)'
+                ' AND (branch==master, project in [p1,p2,p3])'
+            ') OR ('
+                '(event is PatchsetCreatedEvent)'
+                ' AND (branch==master, project in [p1,p2,p3])'
+            ')', str(f))
+
+
+
+class FakeCommentEvent(gerrit.events.CommentAddedEvent):
+    def __init__(self, comment):
+        self.comment = comment
+        self.patchset = gerrit.FakePatchSet()
+        self.change = gerrit.FakeChange()
+        self.change.branch = "master"
+        self.change.project = "nova"
+
+
+class TestCitrixFilter(unittest.TestCase):
+    def test_passing(self):
+        e = FakeCommentEvent("hello")
+
+        f = gerrit.get_filter(dict(
+            projects='nova',
+            comment_re='hello'
+        ))
+
+        self.assertTrue(f.is_event_matching_criteria(e))

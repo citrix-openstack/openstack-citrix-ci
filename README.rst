@@ -332,5 +332,5 @@ $ osci-create-dbschema sqlite:///test.db
 ## Start gerrit watch
 
 ```bash
-$ osci-watch-gerrit pygerrit queue review.openstack.org 29418 mate-lakat sqlite:///test.db
+$ osci-watch-gerrit pygerrit review.openstack.org queue 29418 mate-lakat sqlite:///test.db '.*' 'openstack/nova'
 ```

@@ -200,8 +200,9 @@ class TestWatchGerrit(unittest.TestCase):
         cmd = commands.WatchGerrit()
         self.assertEquals(
             [
-                'gerrit_client', 'event_target', 'gerrit_host',
-                'gerrit_port', 'gerrit_username', 'dburl'
+                'gerrit_client', 'gerrit_host', 'event_target',
+                'gerrit_port', 'gerrit_username', 'dburl',
+                'comment_re', 'projects'
             ],
             cmd.parameters()
         )
