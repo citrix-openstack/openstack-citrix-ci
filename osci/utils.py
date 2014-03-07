@@ -26,7 +26,7 @@ def copy_logs(source_masks, target_dir, host, username, key_filename, upload=Tru
     finally:
         sftp.close()
         ssh.close()
-    
+
 def copy_logs_sftp(sftp, source_masks, target_dir, host, username, key_filename, upload=True):
     logger = logging.getLogger('citrix.copy_logs')
     if upload:
@@ -37,7 +37,7 @@ def copy_logs_sftp(sftp, source_masks, target_dir, host, username, key_filename,
         source = sftp
         target = os
         sftp_method = sftp.get
-        
+
     mkdir_recursive(target, target_dir)
 
     existing_files = target.listdir(target_dir)
@@ -78,7 +78,7 @@ def execute_command(command, delimiter=' ', silent=False, return_streams=False):
                           p.returncode, errors)
     if not silent:
         logging.debug("Output:%s", output)
-    
+
     if return_streams:
         return p.returncode, output, errors
     return p.returncode == 0
@@ -129,7 +129,7 @@ def get_commit_json(change_id):
     (code, stdout, stderr) = execute_command(query, '$', return_streams=True)
     if code == 0:
         return json.loads(stdout.splitlines()[0])
-    
+
 def get_patchset_details(change_id, patchset_id):
     commit_json = get_commit_json(change_id)
     patch_sets = commit_json['patchSets']
