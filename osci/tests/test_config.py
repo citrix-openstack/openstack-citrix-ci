@@ -6,18 +6,19 @@ import ConfigParser
 import io
 from osci import config
 
+
 class TestConfig(unittest.TestCase):
     def setUp(self):
         # Always start with a blank config otherwise
         # the mocked tests might pollute the happy path
         self.conf = config.Configuration()
         self.conf.reread()
-        
+
     def test_config(self):
-        self.assertEqual(self.conf.POLL, '5')
+        self.assertEqual(self.conf.POLL, '30')
 
     def test_config_get(self):
-        self.assertEqual(self.conf.get('POLL'), '5')
+        self.assertEqual(self.conf.get('POLL'), '30')
 
     @mock.patch.object(config.Configuration, '_conf_file_contents')
     def test_config_file(self, mock_conf_file):
@@ -35,7 +36,7 @@ class TestConfig(unittest.TestCase):
         self.assertEqual(self.conf.get_bool('RUN_TESTS'), False)
 
     def test_config_get_int(self):
-        self.assertEqual(self.conf.get_int('POLL'), 5)
+        self.assertEqual(self.conf.get_int('POLL'), 30)
 
     @mock.patch.object(config.Configuration, '_conf_file_contents')
     def test_config_get_int_file(self, mock_conf_file):
