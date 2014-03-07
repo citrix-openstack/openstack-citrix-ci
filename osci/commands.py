@@ -135,7 +135,9 @@ class CreateDBSchema(object):
 
 
 class WatchGerrit(object):
-
+    DEFAULT_SLEEP_TIMEOUT = 5
+    DEFAULT_EVENT_TIME = 600
+    
     def __init__(self, env=None):
         logging.getLogger('sqlalchemy').setLevel(logging.DEBUG)
         env = env or dict()
@@ -159,9 +161,11 @@ class WatchGerrit(object):
         self.event_filter = gerrit.get_filter(env)
         log.info("Event filter: %s", self.event_filter)
         self.event_target = event_target.get_target(dict(env, queue=self.queue))
-        self.sleep_timeout = int(env.get('sleep_timeout'))
+        self.sleep_timeout = int(env.get('sleep_timeout',
+                                         self.DEFAULT_SLEEP_TIMEOUT))
         self.last_event = time_services.now()
-        self.recent_event_time = datetime.timedelta(int(env.get('recent_event_time')))
+        self.recent_event_time = datetime.timedelta(int(env.get('recent_event_time',
+                                                                self.DEFAULT_EVENT_TIME)))
 
     @classmethod
     def parameters(cls):
