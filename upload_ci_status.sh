@@ -1,16 +1,18 @@
 #!/bin/bash
+set -eux
 
 TOP_DIR=$(cd $(dirname "$0") && pwd)
 
-date > /tmp/current_queue.txt
-/usr/local/bin/osci-manage --list --states Running,Queued,Collecting >> /tmp/current_queue.txt
-date > /tmp/recent_finished.txt
-/usr/local/bin/osci-manage --list --states Collected,Finished --recent 24 >> /tmp/recent_finished.txt
-date > /tmp/all_failures.txt
-/usr/local/bin/osci-manage --failures >> /tmp/all_failures.txt
+CI_DIR=/tmp/ci_status
 
-key=`python -c 'from osci.config import Configuration; print Configuration().SFTP_KEY'`
+[ -e $CI_DIR ] && rm -rf $CI_DIR
+mkdir -p $CI_DIR
 
-scp -i $key /tmp/current_queue.txt /tmp/all_failures.txt /tmp/recent_finished.txt \
-    svcacct_openstack@int-ca.downloads.xensource.com:/var/www/html/ca.downloads.xensource.com/OpenStack/xenserver-ci/
+date > $CI_DIR/current_queue.txt
+/usr/local/bin/osci-view list --states Running,Queued,Collecting >> $CI_DIR/current_queue.txt
+date > $CI_DIR/recent_finished.txt
+/usr/local/bin/osci-view list --states Collected,Finished --recent 24 >> $CI_DIR/recent_finished.txt
+date > $CI_DIR/all_failures.txt
+/usr/local/bin/osci-view failures >> $CI_DIR/all_failures.txt
 
+osci-upload $CI_DIR ci_status
