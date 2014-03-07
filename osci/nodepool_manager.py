@@ -8,6 +8,10 @@ class NodePool():
     log = logging.getLogger('citrix.nodepool')
 
     def __init__(self, image):
+        self.image = image
+        self.init_nodepool()
+
+    def init_nodepool(self):
         from nodepool import nodedb, nodepool
         self.nodedb = nodedb
 
@@ -15,10 +19,12 @@ class NodePool():
         config = self.pool.loadConfig()
         self.pool.reconfigureDatabase(config)
         self.pool.setConfig(config)
-        self.image = image
+
+    def getSession(self):
+        return self.pool.getDB().getSession()
 
     def getNode(self):
-        with self.pool.getDB().getSession() as session:
+        with self.getSession() as session:
             for node in session.getNodes():
                 if node.image_name != self.image:
                     continue
@@ -33,7 +39,7 @@ class NodePool():
         if not node_id:
             return
         self.pool.reconfigureManagers(self.pool.config)
-        with self.pool.getDB().getSession() as session:
+        with self.getSession() as session:
             node = session.getNode(node_id)
             if node:
                 self.pool.deleteNode(session, node)
