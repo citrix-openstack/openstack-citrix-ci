@@ -4,7 +4,7 @@ import os
 import sys
 
 from osci.config import Configuration
-import pyrax.exceptions 
+import pyrax.exceptions
 import pyrax
 
 def get_parser():
@@ -62,13 +62,13 @@ class UploadException(Exception):
 
 class SwiftUploader(object):
     logger = logging.getLogger('citrix.swiftupload')
-    
+
     def upload_one_file(self, container, source, target, attempt=0):
         self.logger.info('Uploading %s to %s', source, target)
         chksum = pyrax.utils.get_checksum(source)
         content_encoding=get_content_encoding(source)
         content_type=get_content_type(source)
-        
+
         obj = container.upload_file(source, target,
                                     content_encoding=content_encoding,
                                     content_type=content_type, etag=chksum)
@@ -78,18 +78,18 @@ class SwiftUploader(object):
                 self.upload_one_file(container, source, target, attempt+1)
             else:
                 raise UploadException('Failed to upload %s'%source)
-    
+
     def upload(self, local_dir, cf_prefix):
         pyrax.set_setting('identity_type', 'rackspace')
-        try: 
+        try:
             pyrax.set_credentials(Configuration().SWIFT_USERNAME, Configuration().SWIFT_API_KEY)
         except pyrax.exceptions.AuthenticationFailed, e:
             self.logger.exception(e)
             raise
         cf = pyrax.cloudfiles
-        
+
         container = cf.create_container(Configuration().SWIFT_CONTAINER)
-        
+
         contents = _html_start_stansa(cf_prefix)
         filenames = os.listdir(local_dir)
         filenames.sort()
@@ -98,13 +98,13 @@ class SwiftUploader(object):
             filenames.insert(0, 'run_tests.log')
         for filename in filenames:
             full_path = os.path.join(local_dir, filename)
-            
+
             stats = os.stat(full_path)
             contents = contents + _html_file_stansa(filename, stats.st_size)
-            
+
             cf_name = "%s/%s"%(cf_prefix, filename)
             self.upload_one_file(container, full_path, cf_name)
-                                 
+
         contents = contents + _html_end_stansa()
         container.store_object('%s/results.html'%cf_prefix, contents)
 

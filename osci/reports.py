@@ -12,9 +12,6 @@ from osci.job import Job
 from osci import db
 
 
-def is_project_configured(submitted_project):
-    return submitted_project in Configuration().PROJECT_CONFIG.split(',')
-
 def get_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument('-v', '--verbose', dest='verbose', action='store_true',
