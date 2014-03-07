@@ -10,6 +10,7 @@ from osci import gerrit
 from osci import event_target
 from osci import db
 from osci import job_queue
+from osci import time_services
 
 
 log = logging.getLogger(__name__)
@@ -133,7 +134,6 @@ class CreateDBSchema(object):
 
 
 class WatchGerrit(object):
-    DEFAULT_SLEEP_TIMEOUT = 5
 
     def __init__(self, env=None):
         logging.getLogger('sqlalchemy').setLevel(logging.DEBUG)
@@ -158,9 +158,9 @@ class WatchGerrit(object):
         self.event_filter = gerrit.get_filter(env)
         log.info("Event filter: %s", self.event_filter)
         self.event_target = event_target.get_target(dict(env, queue=self.queue))
-        self.sleep_timeout = env.get(
-            'sleep_timeout', self.DEFAULT_SLEEP_TIMEOUT)
-
+        self.sleep_timeout = env.get('sleep_timeout')
+        self.last_event = time_services.now()
+        self.recent_event_time = env.get('recent_event_time')
 
     @classmethod
     def parameters(cls):
@@ -170,7 +170,15 @@ class WatchGerrit(object):
             'projects']
 
     def get_event(self):
-        return self.gerrit_client.get_event()
+        event = self.gerrit_client.get_event()
+        if event is not None:
+            self.last_event = time_services.now()
+        return event
+
+    def event_seen_recently(self):
+        now = time_services.now()
+        raise RuntimeError('not mocked')
+        return (now - self.last_event) < self.recent_event_time
 
     def get_filtered_event(self):
         event = self.get_event()
@@ -181,16 +189,23 @@ class WatchGerrit(object):
         self.event_target.consume_event(event)
 
     def sleep(self):
-        time.sleep(3)
-        return True
+        time.sleep(self.sleep_timeout)
 
     def do_event_handling(self):
         event = self.get_filtered_event()
-        if event:
+        while event:
             log.info("Consuming event [%s]", event)
             self.consume_event(event)
+            event = self.get_filtered_event()
+
+    def _retry_connect(self):
+        return True
 
     def __call__(self):
-        self.gerrit_client.connect()
-        while self.sleep():
-            self.do_event_handling()
+        print "Start"
+        while self._retry_connect():
+            self.gerrit_client.connect()
+            while self.event_seen_recently():
+                self.do_event_handling()
+                self.sleep()
+            self.gerrit_client.disconnect()

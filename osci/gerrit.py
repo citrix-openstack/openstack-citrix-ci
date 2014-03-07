@@ -70,9 +70,13 @@ class FakeClient(Client):
         super(FakeClient, self).__init__(env)
         self.fake_events = []
         self.fake_connect_calls = []
+        self.fake_disconnect_calls = []
 
     def connect(self):
         self.fake_connect_calls.append(self.connect)
+
+    def disconnect(self):
+        self.fake_disconnect_calls.append(self.disconnect)
 
     def fake_insert_event(self, event):
         self.fake_events.append(event)
@@ -95,6 +99,10 @@ class PyGerritClient(Client):
         version = self.impl.gerrit_version()
         log.debug( "Connected to gerrit version [%s]", version)
         self.impl.start_event_stream()
+
+    def disconnect(self):
+        log.debug( "Stopping event stream")
+        self.impl.stop_event_stream()
 
     def _get_event(self):
         return self.impl.get_event(block=False)

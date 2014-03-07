@@ -4,9 +4,6 @@ import re
 import time
 
 from prettytable import PrettyTable
-from pygerrit.client import GerritClient
-from pygerrit.error import GerritError
-from pygerrit.events import ErrorEvent, PatchsetCreatedEvent, CommentAddedEvent
 from threading import Event
 
 from osci.nodepool_manager import NodePool
@@ -19,31 +16,6 @@ from osci import db
 from osci import filesystem_services
 from osci import swift_upload
 
-
-def is_event_matching_criteria(event):
-    if isinstance(event, CommentAddedEvent):
-        comment = event.comment
-        comment_regexp = re.compile(Configuration().RECHECK_REGEXP, re.IGNORECASE)
-        if not comment_regexp.match(comment):
-            return False
-        logging.debug("Comment matched: %s", comment)
-    elif not isinstance(event, PatchsetCreatedEvent):
-        return False
-    if event.change.branch == "master":
-        if is_project_configured(event.change.project):
-            logging.info("Event %s is matching event criteria", event)
-            return True
-    return False
-
-def is_project_configured(submitted_project):
-    return submitted_project in Configuration().PROJECT_CONFIG.split(',')
-
-def queue_event(queue, event):
-    logging.info("patchset values : %s", event)
-    if is_project_configured(event.change.project):
-        queue.addJob(event.patchset.ref,
-                      event.change.project,
-                      event.patchset.revision)
 
 def get_parser():
     usage = "usage: %prog [options]"
@@ -201,43 +173,8 @@ def main():
         print table
         return
 
-    # Starting the loop for listening to Gerrit events
-    try:
-        logging.info("Connecting to gerrit host %s",
-                     Configuration().GERRIT_HOST)
-        logging.info("Connecting to gerrit username %s",
-                     Configuration().GERRIT_USERNAME)
-        logging.info("Connecting to gerrit port %s",
-                     Configuration().GERRIT_PORT)
-        gerrit = GerritClient(host=Configuration().GERRIT_HOST,
-                              username=Configuration().GERRIT_USERNAME,
-                              port=Configuration().get_int('GERRIT_PORT'))
-        logging.info("Connected to Gerrit version [%s]",
-                     gerrit.gerrit_version())
-        gerrit.start_event_stream()
-    except GerritError as err:
-        logging.error("Gerrit error: %s", err)
-        return 1
-
-    last_event = time.time()
-    errors = Event()
     try:
         while True:
-            event = gerrit.get_event(block=False)
-            while event:
-                logging.debug("Event: %s", event)
-                last_event = time.time()
-
-                if is_event_matching_criteria(event):
-                    queue_event(queue, event)
-
-                if isinstance(event, ErrorEvent):
-                    logging.error(event.error)
-                    errors.set()
-                event = gerrit.get_event(block=False)
-            if ((time.time() - last_event) > Configuration().get_int('GERRIT_EVENT_TIMEOUT')):
-                msg = 'No events from gerrit in required time.  Exiting.'
-                raise RuntimeError(msg)
             try:
                 queue.postResults()
                 queue.processResults()
@@ -248,10 +185,4 @@ def main():
             time.sleep(Configuration().get_int('POLL'))
     except KeyboardInterrupt:
         logging.info("Terminated by user")
-    finally:
-        logging.debug("Stopping event stream...")
-        gerrit.stop_event_stream()
 
-    if errors.isSet():
-        logging.error("Exited with error")
-        return 1

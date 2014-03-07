@@ -50,7 +50,7 @@ class TestGetDom0Logs(unittest.TestCase):
             ),
             cmd.executor.executed_commands[0])
 
-    def test_stars_escaped(self):
+    def test_sars_escaped(self):
         cmd = commands.GetDom0Logs()
         cmd.sources = '*'
 
@@ -221,33 +221,37 @@ class TestWatchGerritMainLoop(unittest.TestCase):
         self.patchers = [
             mock.patch.object(cmd, 'sleep'),
             mock.patch.object(cmd, 'do_event_handling'),
-        ]
+            mock.patch.object(cmd, 'event_seen_recently'),
+            mock.patch.object(cmd, '_retry_connect'),
+            ]
         [patcher.start() for patcher in self.patchers]
-
-    def test_call_quits_if_cannot_sleep(self):
-        cmd = self.cmd
-        cmd.sleep.return_value = False
-        cmd()
-        cmd.sleep.assert_called_once_with()
-
-    def test_call_loop_runs_until_sleep_fails(self):
-        cmd = self.cmd
-        cmd.sleep.side_effect = [True, True, False]
-        cmd()
-        self.assertEquals(3, len(cmd.sleep.mock_calls))
+        cmd._retry_connect = mock.Mock()
+        cmd._retry_connect.side_effect = [True, False]
 
     def test_call_connects(self):
         cmd = self.cmd
-        cmd.sleep.return_value = False
+        cmd.event_seen_recently.return_value = False
         cmd()
         self.assertEquals(1,
                           len(cmd.gerrit_client.fake_connect_calls))
+        self.assertEquals(1,
+                          len(cmd.gerrit_client.fake_disconnect_calls))
 
     def test_call_runs_main(self):
         cmd = self.cmd
-        cmd.sleep.side_effect = [True, False]
+        cmd.event_seen_recently.side_effect = [True, False]
         cmd()
         cmd.do_event_handling.assert_called_once_with()
+
+    def test_call_reconnects(self):
+        cmd = self.cmd
+        cmd.event_seen_recently.return_value = False
+        cmd._retry_connect.side_effect = [True, True, False]
+        cmd()
+        self.assertEquals(2,
+                          len(cmd.gerrit_client.fake_connect_calls))
+        self.assertEquals(2,
+                          len(cmd.gerrit_client.fake_disconnect_calls))
 
     def tearDown(self):
         [patcher.stop() for patcher in self.patchers]
@@ -259,16 +263,6 @@ class TestSleep(unittest.TestCase):
         cmd = commands.WatchGerrit(dict(sleep_timeout=3))
         cmd.sleep()
         sleep.assert_called_once_with(3)
-
-    def test_sleep_default_value(self):
-        cmd = commands.WatchGerrit()
-        self.assertEquals(5, cmd.sleep_timeout)
-
-    @mock.patch('time.sleep')
-    def test_sleep_returns_true(self, sleep):
-        cmd = commands.WatchGerrit()
-        result = cmd.sleep()
-        self.assertTrue(result)
 
 
 class TestEventHandling(unittest.TestCase):
@@ -282,12 +276,12 @@ class TestEventHandling(unittest.TestCase):
 
     def test_event_handling(self):
         cmd = self.cmd
-        cmd.get_filtered_event.return_value = 'EVENT'
+        cmd.get_filtered_event.side_effect = ['EVENT', None]
 
         cmd.do_event_handling()
 
         cmd.consume_event.assert_called_once_with('EVENT')
-        cmd.get_filtered_event.assert_called_once_with()
+        cmd.get_filtered_event.assert_has_calls([mock.call(), mock.call()])
 
     def test_event_handling_no_event(self):
         cmd = self.cmd

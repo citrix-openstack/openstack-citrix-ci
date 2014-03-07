@@ -49,6 +49,8 @@ def watch_gerrit():
         dburl=c.get('DATABASE_URL'),
         comment_re=c.get('RECHECK_REGEXP'),
         projects=c.get('PROJECT_CONFIG'),
+        recent_event_time=c.get('GERRIT_EVENT_TIMEOUT'),
+        sleep_timeout=c.get('POLL')
     )
     sys.exit(run_command(commands.WatchGerrit, env=env))
 
