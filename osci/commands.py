@@ -1,3 +1,4 @@
+import datetime
 import time
 import logging
 
@@ -158,9 +159,9 @@ class WatchGerrit(object):
         self.event_filter = gerrit.get_filter(env)
         log.info("Event filter: %s", self.event_filter)
         self.event_target = event_target.get_target(dict(env, queue=self.queue))
-        self.sleep_timeout = env.get('sleep_timeout')
+        self.sleep_timeout = int(env.get('sleep_timeout'))
         self.last_event = time_services.now()
-        self.recent_event_time = env.get('recent_event_time')
+        self.recent_event_time = datetime.timedelta(int(env.get('recent_event_time')))
 
     @classmethod
     def parameters(cls):
@@ -177,7 +178,6 @@ class WatchGerrit(object):
 
     def event_seen_recently(self):
         now = time_services.now()
-        raise RuntimeError('not mocked')
         return (now - self.last_event) < self.recent_event_time
 
     def get_filtered_event(self):
