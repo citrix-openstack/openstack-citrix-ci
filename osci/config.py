@@ -24,13 +24,13 @@ class Configuration(object):
         'MAX_RUNNING_TIME': str(3*3600+15*60), # 3 hours and 15 minutes
         'DATABASE_URL': 'mysql://root:@127.0.0.1/openstack_ci',
         'NODEPOOL_CONFIG': '/etc/nodepool/nodepool.yaml',
-        'NODEPOOL_IMAGE': 'devstack-xenserver',
+        'NODEPOOL_IMAGE': 'XSDSVM',
         'NODE_USERNAME': 'jenkins',
         'NODE_KEY': '/usr/workspace/scratch/openstack/infrastructure.hg/keys/nodepool',
         'POLL': '30',
         'PROJECT_CONFIG': 'openstack/nova,openstack/tempest,openstack-dev/devstack',
         'RUN_TESTS': 'True',
-        'RECHECK_REGEXP': '^(citrix recheck|xenserver recheck|recheck bug|recheck nobug).*',
+        'RECHECK_REGEXP': '^(citrix recheck|xenserver recheck|recheck xenserver|recheck bug|recheck nobug).*',
         'REVIEW_REPO_NAME': 'review',
         'SWIFT_CONTAINER': 'CILogs',
         'SWIFT_USERNAME': 'citrix.nodepool2',
@@ -41,7 +41,7 @@ class Configuration(object):
         'VOTE_NEGATIVE': 'False',
         'VOTE_SERVICE_ACCOUNT': 'False',
         'VOTE_MESSAGE': "%(result)s using XenAPI driver with XenServer 6.2: Logs at %(log)s\n\n"+\
-                      "Standard recheck supported; use \"xenserver recheck\" to trigger only "+\
+                      "Standard recheck supported; use \"recheck xenserver\" to trigger only "+\
                       "xenserver re-check.  XenServer CI contact: openstack@citrix.com.",
         }
 
