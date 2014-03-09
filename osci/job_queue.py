@@ -1,6 +1,7 @@
 import os
 import logging
 import paramiko
+import time
 import threading
 import Queue
 
@@ -22,6 +23,8 @@ class DeleteNodeThread(threading.Thread):
         self.jobQueue = jobQueue
         self.pool = self.jobQueue.nodepool
         self.daemon = True
+        self.internal_list = []
+        self.add_missing_jobs()
 
     def add_missing_jobs(self):
         with self.jobQueue.db.get_session() as session:
@@ -31,15 +34,27 @@ class DeleteNodeThread(threading.Thread):
                                                            Job.node_id != 0))
 
             for job in finished_node_jobs:
-                self.deleteNodeQueue.put(job)
+                if job not in self.internal_list:
+                    self.internal_list.append(job)
+
+    def add_all_jobs_to_internal(self):
+        try:
+            while True:
+                job = self.deleteNodeQueue.get(block=False)
+                self.internal_list.append(job)
+        except Queue.Empty, e:
+            pass
 
     def run(self):
         while True:
             try:
-                job = self.deleteNodeQueue.get(block=True, timeout=30)
-                job.update(self.jobQueue.db, node_id=0)
-                self.pool.deleteNode(job.node_id)
+                self.add_all_jobs_to_internal()
+                self.log.debug('Nodes to delete: %s'%self.internal_list)
+                for job in self.internal_list:
+                    job.update(self.jobQueue.db, node_id=0)
+                    self.pool.deleteNode(job.node_id)
                 self.add_missing_jobs()
+                time.sleep(10)
             except Queue.Empty, e:
                 pass
             except Exception, e:
@@ -55,21 +70,33 @@ class CollectResultsThread(threading.Thread):
         threading.Thread.__init__(self, name='DeleteNodeThread')
         self.daemon = True
         self.jobQueue = jobQueue
+        self.internal_list = []
         self.add_missing_jobs()
 
     def add_missing_jobs(self):
         collectingJobs = Job.getAllWhere(self.jobQueue.db,
                                          state=constants.COLLECTING)
         for job in collectingJobs:
-            if job not in self.collectJobs:
-                self.collectJobs.put(job)
+            if job not in self.internal_list:
+                self.internal_list.append(job)
+
+    def add_all_jobs_to_internal(self):
+        try:
+            while True:
+                job = self.collectJobs.get(block=False)
+                self.internal_list.append(job)
+        except Queue.Empty, e:
+            pass
 
     def run(self):
         while True:
             try:
-                job = self.collectJobs.get(block=True, timeout=30)
-                self.jobQueue.uploadResults(job)
                 self.add_missing_jobs()
+                self.add_all_jobs_to_internal()
+                self.log.debug('Nodes to collect: %s'%self.internal_list)
+                for job in self.internal_list:
+                    self.jobQueue.uploadResults(job)
+                time.sleep(10)
             except Queue.Empty, e:
                 pass
             except Exception, e:
@@ -109,7 +136,7 @@ class JobQueue(object):
 
     def triggerJobs(self):
         for job in self.get_queued_enabled_jobs():
-            job.runJob(self.nodepool)
+            job.runJob(self.db, self.nodepool)
 
     def get_queued_enabled_jobs(self):
         allJobs = Job.getAllWhere(self.db, state=constants.QUEUED)

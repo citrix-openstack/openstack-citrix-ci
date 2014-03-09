@@ -113,9 +113,8 @@ class TestInit(unittest.TestCase, QueueHelpers):
         # Only node 2 should be deleted
         dnt = job_queue.DeleteNodeThread(q)
         dnt.add_missing_jobs()
-        self.assertFalse(dnt.deleteNodeQueue.empty())
-        j = dnt.deleteNodeQueue.get()
-        self.assertTrue(dnt.deleteNodeQueue.empty())
+        self.assertEquals(len(dnt.internal_list), 1)
+        j = dnt.internal_list[0]
         self.assertEquals(2, j.node_id)
 
 
