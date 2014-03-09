@@ -15,4 +15,4 @@ date > $CI_DIR/recent_finished.txt
 date > $CI_DIR/all_failures.txt
 /usr/local/bin/osci-view failures >> $CI_DIR/all_failures.txt
 
-osci-upload $CI_DIR ci_status
+/usr/local/bin/osci-upload $CI_DIR ci_status
