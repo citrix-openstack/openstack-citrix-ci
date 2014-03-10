@@ -21,7 +21,6 @@ class DeleteNodeThread(threading.Thread):
         self.pool = self.jobQueue.nodepool
         self.daemon = True
         self.internal_list = []
-        self.add_missing_jobs()
 
     def add_missing_jobs(self):
         with self.jobQueue.db.get_session() as session:
@@ -55,7 +54,6 @@ class CollectResultsThread(threading.Thread):
         self.daemon = True
         self.jobQueue = jobQueue
         self.internal_list = []
-        self.add_missing_jobs()
 
     def add_missing_jobs(self):
         collectingJobs = Job.getAllWhere(self.jobQueue.db,
