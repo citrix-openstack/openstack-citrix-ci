@@ -180,10 +180,17 @@ class Job(db.Base):
             )
             self.log.info('Result: %s (Err: %s)'%(stdout, stderr))
             self.log.info('Downloading logs for %s'%self)
-            utils.copy_logs(['/home/jenkins/workspace/testing/logs/*', '/home/jenkins/run_test*'], dest_path,
-                      self.node_ip, Configuration().NODE_USERNAME,
-                      Configuration().NODE_KEY,
-                      upload=False)
+            utils.copy_logs(
+                [
+                    '/home/jenkins/workspace/testing/logs/*',
+                    '/home/jenkins/run_test*'
+                ],
+                dest_path,
+                self.node_ip,
+                Configuration().NODE_USERNAME,
+                Configuration().NODE_KEY,
+                upload=False
+            )
 
             if code != 0:
                 # This node is broken somehow... Mark it as aborted
