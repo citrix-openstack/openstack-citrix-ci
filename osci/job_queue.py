@@ -3,7 +3,6 @@ import logging
 import paramiko
 import time
 import threading
-import Queue
 
 from osci.db import DB, and_
 from osci.config import Configuration
@@ -38,14 +37,12 @@ class DeleteNodeThread(threading.Thread):
     def run(self):
         while True:
             try:
+                self.add_missing_jobs()
                 self.log.debug('Nodes to delete: %s'%self.internal_list)
                 for job in self.internal_list:
                     job.update(self.jobQueue.db, node_id=0)
                     self.pool.deleteNode(job.node_id)
-                self.add_missing_jobs()
                 time.sleep(10)
-            except Queue.Empty, e:
-                pass
             except Exception, e:
                 self.log.exception(e)
 
@@ -75,8 +72,6 @@ class CollectResultsThread(threading.Thread):
                 for job in self.internal_list:
                     self.jobQueue.uploadResults(job)
                 time.sleep(10)
-            except Queue.Empty, e:
-                pass
             except Exception, e:
                 self.log.exception(e)
 
