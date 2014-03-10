@@ -228,6 +228,29 @@ class TestRetrieveResults(unittest.TestCase):
             silent=True, return_streams=True)
 
     @mock.patch('osci.job.utils')
+    def test_dom0_logs_copied(self, fake_utils):
+        self.job.node_ip = 'ip'
+        fake_utils.execute_command.return_value = (
+            0, 'Reported status\nAnd some\nRubbish', 'err')
+
+        result = self.run_retrieve_results()
+
+        fake_utils.copy_dom0_logs.assert_called_once_with(
+            'ip', 'jenkins', 'ignored')
+
+    @mock.patch('osci.job.utils')
+    def test_dom0_log_copy_fails(self, fake_utils):
+        self.job.node_ip = 'ip'
+        fake_utils.execute_command.return_value = (
+            0, 'Reported status\nAnd some\nRubbish', 'err')
+
+        fake_utils.copy_dom0_logs.side_effect = Exception()
+
+        result = self.run_retrieve_results()
+
+        self.assertEquals(constants.COPYFAIL, result)
+
+    @mock.patch('osci.job.utils')
     def test_status_cannot_be_retrieved_old_status_used(self, fake_utils):
         self.job.node_ip = 'ip'
         self.job.result = 'Aborted: previous result'

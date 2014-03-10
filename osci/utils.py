@@ -137,3 +137,7 @@ def get_patchset_details(change_id, patchset_id):
     matching_patch = matching_patches[0]
     matching_patch['project'] = commit_json['project']
     return matching_patches[0]
+
+
+def copy_dom0_logs(host, user, local_directory):
+    raise NotImplementedError()

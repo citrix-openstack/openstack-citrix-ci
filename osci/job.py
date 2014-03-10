@@ -191,6 +191,9 @@ class Job(db.Base):
                 Configuration().NODE_KEY,
                 upload=False
             )
+            self.log.info('Downloading dom0 logs for %s'%self)
+            utils.copy_dom0_logs(
+                self.node_ip, Configuration().NODE_USERNAME, dest_path)
 
             if code != 0:
                 # This node is broken somehow... Mark it as aborted
