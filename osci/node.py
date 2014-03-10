@@ -7,6 +7,7 @@ class Node(server.Server):
 
     USERNAME = 'node_username'
     HOST = 'node_host'
+    KEYFILE = 'node_keyfile'
 
     def commands_for_dom0(self):
         return (

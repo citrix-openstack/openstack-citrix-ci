@@ -9,6 +9,10 @@ import stat
 from osci import constants
 from osci import utils
 from osci.config import Configuration
+from osci import executor
+from osci import localhost
+from osci import node
+
 
 class TestGerrit(unittest.TestCase):
     @mock.patch.object(utils, 'get_commit_json')
@@ -113,3 +117,26 @@ class TestCopyLogs(unittest.TestCase):
         utils.mkdir_recursive(target, '/'.join(path_elems))
         target.mkdir.assert_has_calls([mock.call('/'.join(path_elems[:-1])),
                                        mock.call('/'.join(path_elems))])
+
+
+class TestCopyDom0Logs(unittest.TestCase):
+    @mock.patch('osci.utils.Executor')
+    def test_copying(self, executor_cls):
+        xecutor = executor_cls.return_value = executor.FakeExecutor()
+        expected_execution = executor.FakeExecutor()
+        this_host = localhost.Localhost()
+        n = node.Node({
+            'node_username': 'user',
+            'node_host': 'ip',
+            'node_keyfile': 'key'})
+
+        expected_execution.pipe_run(
+            n.command_to_get_dom0_files_as_tgz_to_stdout(
+                '/var/log/messages* /var/log/xensource* /opt/nodepool-scripts/*.log'),
+            this_host.commands_to_extract_stdout_tgz_to('target'))
+
+        utils.copy_dom0_logs('ip', 'user', 'key', 'target')
+
+        self.assertEquals(
+            expected_execution.executed_commands,
+            xecutor.executed_commands)

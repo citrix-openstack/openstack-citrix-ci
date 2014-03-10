@@ -9,6 +9,12 @@ import errno
 import json
 
 from osci.config import Configuration
+from osci.executor import RealExecutor
+from osci import localhost
+from osci import node
+
+
+Executor = RealExecutor
 
 
 def mkdir_recursive(target, target_dir):
@@ -139,5 +145,18 @@ def get_patchset_details(change_id, patchset_id):
     return matching_patches[0]
 
 
-def copy_dom0_logs(host, user, local_directory):
-    raise NotImplementedError()
+def copy_dom0_logs(host, user, keyfile, local_directory):
+    dom0_files = (
+        '/var/log/messages* /var/log/xensource* /opt/nodepool-scripts/*.log'
+    )
+
+    xecutor = Executor()
+    test_node = node.Node(
+        dict(node_username=user, node_host=host, node_keyfile=keyfile))
+    this_host = localhost.Localhost()
+
+    xecutor.pipe_run(
+        test_node.command_to_get_dom0_files_as_tgz_to_stdout(dom0_files),
+        this_host.commands_to_extract_stdout_tgz_to(local_directory)
+    )
+
