@@ -39,8 +39,8 @@ class DeleteNodeThread(threading.Thread):
                 delete_list = self.get_jobs()
                 self.log.debug('Nodes to delete: %s'%delete_list)
                 for job in delete_list:
-                    job.update(self.jobQueue.db, node_id=0)
                     self.pool.deleteNode(job.node_id)
+                    job.update(self.jobQueue.db, node_id=0)
                 time.sleep(10)
             except Exception, e:
                 self.log.exception(e)
