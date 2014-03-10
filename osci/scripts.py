@@ -26,10 +26,6 @@ def setup_logging():
     logging.basicConfig(level=logging.DEBUG)
 
 
-def cp_dom0_logserver():
-    sys.exit(run_command(commands.GetDom0Logs))
-
-
 def check_connection():
     sys.exit(run_command(commands.CheckConnection))
 

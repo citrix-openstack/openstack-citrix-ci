@@ -185,3 +185,105 @@ class TestRunning(unittest.TestCase):
         mock_execute_command.return_value = True
         self.assertTrue(job.isRunning("DB"))
         self.assertEqual(0, mock_update.call_count)
+
+
+class TestRetrieveResults(unittest.TestCase):
+    def setUp(self):
+        self.job = Job()
+
+    def run_retrieve_results(self):
+        return self.job.retrieveResults('ignored')
+
+    def test_no_ip(self):
+        self.job.node_ip = None
+
+        result = self.run_retrieve_results()
+
+        self.assertEquals(constants.NO_IP, result)
+
+    @mock.patch('osci.job.utils')
+    def test_status_can_be_retrieved(self, fake_utils):
+        self.job.node_ip = 'ip'
+        fake_utils.execute_command.return_value = (
+            0, 'Reported status\nAnd some\nRubbish', 'err')
+
+        result = self.run_retrieve_results()
+
+        self.assertEquals('Reported status', result)
+
+    @mock.patch('osci.job.utils')
+    def test_logs_copied(self, fake_utils):
+        self.job.node_ip = 'ip'
+        fake_utils.execute_command.return_value = (
+            0, 'Reported status\nAnd some\nRubbish', 'err')
+
+        result = self.run_retrieve_results()
+
+        fake_utils.execute_command.assert_called_once_with(
+            'ssh -q -o BatchMode=yes'
+            ' -o UserKnownHostsFile=/dev/null'
+            ' -o StrictHostKeyChecking=no'
+            ' -i /usr/workspace/scratch/openstack/infrastructure.hg/keys/nodepool'
+            ' jenkins@ip cat result.txt',
+            silent=True, return_streams=True)
+
+    @mock.patch('osci.job.utils')
+    def test_dom0_logs_copied(self, fake_utils):
+        self.job.node_ip = 'ip'
+        fake_utils.execute_command.return_value = (
+            0, 'Reported status\nAnd some\nRubbish', 'err')
+
+        result = self.run_retrieve_results()
+
+        fake_utils.copy_dom0_logs.assert_called_once_with(
+            'ip',
+            'jenkins',
+            '/usr/workspace/scratch/openstack/infrastructure.hg/keys/nodepool',
+            'ignored'
+        )
+
+    @mock.patch('osci.job.utils')
+    def test_dom0_log_copy_fails(self, fake_utils):
+        self.job.node_ip = 'ip'
+        fake_utils.execute_command.return_value = (
+            0, 'Reported status\nAnd some\nRubbish', 'err')
+
+        fake_utils.copy_dom0_logs.side_effect = Exception()
+
+        result = self.run_retrieve_results()
+
+        self.assertEquals(constants.COPYFAIL, result)
+
+    @mock.patch('osci.job.utils')
+    def test_status_cannot_be_retrieved_old_status_used(self, fake_utils):
+        self.job.node_ip = 'ip'
+        self.job.result = 'Aborted: previous result'
+
+        fake_utils.execute_command.return_value = (
+            1, 'Reported status\nAnd some\nRubbish', 'err')
+
+        result = self.run_retrieve_results()
+
+        self.assertEquals('Aborted: previous result', result)
+
+    @mock.patch('osci.job.utils')
+    def test_status_cannot_be_retrieved_old_status_not_used(self, fake_utils):
+        self.job.node_ip = 'ip'
+        self.job.result = 'previous result'
+
+        fake_utils.execute_command.return_value = (
+            1, 'Reported status\nAnd some\nRubbish', 'err')
+
+        result = self.run_retrieve_results()
+
+        self.assertEquals(constants.NORESULT, result)
+
+    @mock.patch('osci.job.utils')
+    def test_exception_raised(self, fake_utils):
+        self.job.node_ip = 'ip'
+
+        fake_utils.execute_command.side_effect = Exception()
+
+        result = self.run_retrieve_results()
+
+        self.assertEquals(constants.COPYFAIL, result)

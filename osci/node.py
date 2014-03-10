@@ -7,6 +7,7 @@ class Node(server.Server):
 
     USERNAME = 'node_username'
     HOST = 'node_host'
+    KEYFILE = 'node_keyfile'
 
     def commands_for_dom0(self):
         return (
@@ -20,5 +21,11 @@ class Node(server.Server):
             self.command_for_this_node()
             + self.commands_for_dom0()
             + executor.escaped(args)
+        )
+
+    def command_to_get_dom0_files_as_tgz_to_stdout(self, sources):
+        return self.run_on_dom0(
+            "tar --ignore-failed-read -czf - {0}".format(
+                sources).split()
         )
 

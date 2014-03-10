@@ -13,3 +13,8 @@ STATES = {
     COLLECTING: 'Collecting',
     OBSOLETE: 'Obsolete',
     }
+
+# Statuses
+NO_IP = "Aborted: No IP"
+NORESULT = "Aborted: No result found"
+COPYFAIL = "Aborted: Failed to copy logs"
