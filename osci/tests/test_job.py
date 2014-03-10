@@ -236,7 +236,11 @@ class TestRetrieveResults(unittest.TestCase):
         result = self.run_retrieve_results()
 
         fake_utils.copy_dom0_logs.assert_called_once_with(
-            'ip', 'jenkins', 'ignored')
+            'ip',
+            'jenkins',
+            '/usr/workspace/scratch/openstack/infrastructure.hg/keys/nodepool',
+            'ignored'
+        )
 
     @mock.patch('osci.job.utils')
     def test_dom0_log_copy_fails(self, fake_utils):
