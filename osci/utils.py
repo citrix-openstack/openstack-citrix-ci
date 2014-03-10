@@ -22,12 +22,12 @@ def copy_logs(source_masks, target_dir, host, username, key_filename, upload=Tru
     ssh = getSSHObject(host, username, key_filename)
     sftp = ssh.open_sftp()
     try:
-        copy_logs_sftp(sftp, source_masks, target_dir, host, username, key_filename, upload=True)
+        copy_logs_sftp(sftp, source_masks, target_dir, host, username, key_filename, upload)
     finally:
         sftp.close()
         ssh.close()
 
-def copy_logs_sftp(sftp, source_masks, target_dir, host, username, key_filename, upload=True):
+def copy_logs_sftp(sftp, source_masks, target_dir, host, username, key_filename, upload):
     logger = logging.getLogger('citrix.copy_logs')
     if upload:
         source = os
