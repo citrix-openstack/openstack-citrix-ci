@@ -217,7 +217,11 @@ class TestRetrieveResults(unittest.TestCase):
         result = job.retrieveResults('ignored')
 
         fake_utils.execute_command.assert_called_once_with(
-            'ssh -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i /usr/workspace/scratch/openstack/infrastructure.hg/keys/nodepool jenkins@ip cat result.txt',
+            'ssh -q -o BatchMode=yes'
+            ' -o UserKnownHostsFile=/dev/null'
+            ' -o StrictHostKeyChecking=no'
+            ' -i /usr/workspace/scratch/openstack/infrastructure.hg/keys/nodepool'
+            ' jenkins@ip cat result.txt',
             silent=True, return_streams=True)
 
     @mock.patch('osci.job.utils')
