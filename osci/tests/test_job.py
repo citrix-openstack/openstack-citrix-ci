@@ -188,33 +188,36 @@ class TestRunning(unittest.TestCase):
 
 
 class TestRetrieveResults(unittest.TestCase):
-    def test_no_ip(self):
-        job = Job()
-        job.node_ip = None
+    def setUp(self):
+        self.job = Job()
 
-        result = job.retrieveResults('ignored')
+    def run_retrieve_results(self):
+        return self.job.retrieveResults('ignored')
+
+    def test_no_ip(self):
+        self.job.node_ip = None
+
+        result = self.run_retrieve_results()
 
         self.assertEquals(constants.NO_IP, result)
 
     @mock.patch('osci.job.utils')
     def test_status_can_be_retrieved(self, fake_utils):
-        job = Job()
-        job.node_ip = 'ip'
+        self.job.node_ip = 'ip'
         fake_utils.execute_command.return_value = (
             0, 'Reported status\nAnd some\nRubbish', 'err')
 
-        result = job.retrieveResults('ignored')
+        result = self.run_retrieve_results()
 
         self.assertEquals('Reported status', result)
 
     @mock.patch('osci.job.utils')
     def test_logs_copied(self, fake_utils):
-        job = Job()
-        job.node_ip = 'ip'
+        self.job.node_ip = 'ip'
         fake_utils.execute_command.return_value = (
             0, 'Reported status\nAnd some\nRubbish', 'err')
 
-        result = job.retrieveResults('ignored')
+        result = self.run_retrieve_results()
 
         fake_utils.execute_command.assert_called_once_with(
             'ssh -q -o BatchMode=yes'
@@ -226,37 +229,34 @@ class TestRetrieveResults(unittest.TestCase):
 
     @mock.patch('osci.job.utils')
     def test_status_cannot_be_retrieved_old_status_used(self, fake_utils):
-        job = Job()
-        job.node_ip = 'ip'
-        job.result = 'Aborted: previous result'
+        self.job.node_ip = 'ip'
+        self.job.result = 'Aborted: previous result'
 
         fake_utils.execute_command.return_value = (
             1, 'Reported status\nAnd some\nRubbish', 'err')
 
-        result = job.retrieveResults('ignored')
+        result = self.run_retrieve_results()
 
         self.assertEquals('Aborted: previous result', result)
 
     @mock.patch('osci.job.utils')
     def test_status_cannot_be_retrieved_old_status_not_used(self, fake_utils):
-        job = Job()
-        job.node_ip = 'ip'
-        job.result = 'previous result'
+        self.job.node_ip = 'ip'
+        self.job.result = 'previous result'
 
         fake_utils.execute_command.return_value = (
             1, 'Reported status\nAnd some\nRubbish', 'err')
 
-        result = job.retrieveResults('ignored')
+        result = self.run_retrieve_results()
 
         self.assertEquals(constants.NORESULT, result)
 
     @mock.patch('osci.job.utils')
     def test_exception_raised(self, fake_utils):
-        job = Job()
-        job.node_ip = 'ip'
+        self.job.node_ip = 'ip'
 
         fake_utils.execute_command.side_effect = Exception()
 
-        result = job.retrieveResults('ignored')
+        result = self.run_retrieve_results()
 
         self.assertEquals(constants.COPYFAIL, result)
