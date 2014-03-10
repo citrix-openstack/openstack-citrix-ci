@@ -22,3 +22,9 @@ class Node(server.Server):
             + executor.escaped(args)
         )
 
+    def command_to_get_dom0_files_as_tgz_to_stdout(self, sources):
+        return self.run_on_dom0(
+            "tar --ignore-failed-read -czf - {0}".format(
+                sources).split()
+        )
+
