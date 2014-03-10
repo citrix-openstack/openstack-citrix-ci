@@ -169,9 +169,15 @@ class Job(db.Base):
             self.log.error('Attempting to retrieve results for %s but no node IP address'%self)
             return constants.NO_IP
         try:
-            code, stdout, stderr = utils.execute_command('ssh -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i %s %s@%s cat result.txt'%(
-                    Configuration().NODE_KEY, Configuration().NODE_USERNAME, self.node_ip), silent=True,
-                                                   return_streams=True)
+            code, stdout, stderr = utils.execute_command(
+                'ssh -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null'
+                ' -o StrictHostKeyChecking=no -i %s %s@%s cat result.txt' % (
+                    Configuration().NODE_KEY,
+                    Configuration().NODE_USERNAME,
+                    self.node_ip),
+                silent=True,
+                return_streams=True
+            )
             self.log.info('Result: %s (Err: %s)'%(stdout, stderr))
             self.log.info('Downloading logs for %s'%self)
             utils.copy_logs(['/home/jenkins/workspace/testing/logs/*', '/home/jenkins/run_test*'], dest_path,
