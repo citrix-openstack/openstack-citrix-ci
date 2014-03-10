@@ -17,37 +17,6 @@ from osci import time_services
 log = logging.getLogger(__name__)
 
 
-class GetDom0Logs(object):
-    def __init__(self, env=None):
-        env = env or dict()
-        self.executor = executor.create_executor(env.get('executor'))
-        self.node = node.Node(env)
-        self.logserver = logserver.Logserver(env)
-        self.target_dir = env.get('target_dir', 'TARGET_DIR')
-        self.sources = env.get('sources', 'SOURCES')
-
-    @classmethod
-    def parameters(cls):
-        return (
-            ['executor']
-            + node.Node.parameters()
-            + ['sources']
-            + logserver.Logserver.parameters()
-            + ['target_dir']
-        )
-
-    def __call__(self):
-        self.executor.pipe_run(
-            self.node.run_on_dom0(
-                "tar --ignore-failed-read -czf - {0}".format(
-                    self.sources).split()
-            ),
-            self.logserver.run(
-                'tar -xzf - -C {0}'.format(self.target_dir).split()
-            )
-        )
-
-
 class CheckConnection(object):
     def __init__(self, env=None):
         env = env or dict()
