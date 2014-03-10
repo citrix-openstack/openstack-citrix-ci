@@ -45,7 +45,6 @@ def main():
         logging.getLogger(logger_name).setLevel(logging.WARNING)
 
     database = db.DB(Configuration().DATABASE_URL)
-    database.create_schema()
 
     queue = JobQueue(
         database=database,
@@ -53,6 +52,7 @@ def main():
         filesystem=filesystem_services.RealFilesystem(),
         uploader=swift_upload.SwiftUploader(),
         executor=utils.execute_command)
+    
     queue.startCleanupThreads()
 
     if options.change_ref:

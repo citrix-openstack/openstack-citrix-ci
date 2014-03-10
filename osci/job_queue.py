@@ -16,8 +16,6 @@ from osci import filesystem_services
 class DeleteNodeThread(threading.Thread):
     log = logging.getLogger('citrix.DeleteNodeThread')
 
-    deleteNodeQueue = Queue.Queue()
-
     def __init__(self, jobQueue):
         threading.Thread.__init__(self, name='DeleteNodeThread')
         self.jobQueue = jobQueue
@@ -37,18 +35,9 @@ class DeleteNodeThread(threading.Thread):
                 if job not in self.internal_list:
                     self.internal_list.append(job)
 
-    def add_all_jobs_to_internal(self):
-        try:
-            while True:
-                job = self.deleteNodeQueue.get(block=False)
-                self.internal_list.append(job)
-        except Queue.Empty, e:
-            pass
-
     def run(self):
         while True:
             try:
-                self.add_all_jobs_to_internal()
                 self.log.debug('Nodes to delete: %s'%self.internal_list)
                 for job in self.internal_list:
                     job.update(self.jobQueue.db, node_id=0)
@@ -64,10 +53,8 @@ class DeleteNodeThread(threading.Thread):
 class CollectResultsThread(threading.Thread):
     log = logging.getLogger('citrix.CollectResultsThread')
 
-    collectJobs = Queue.Queue()
-
     def __init__(self, jobQueue):
-        threading.Thread.__init__(self, name='DeleteNodeThread')
+        threading.Thread.__init__(self, name='CollectResultsThread')
         self.daemon = True
         self.jobQueue = jobQueue
         self.internal_list = []
@@ -80,19 +67,10 @@ class CollectResultsThread(threading.Thread):
             if job not in self.internal_list:
                 self.internal_list.append(job)
 
-    def add_all_jobs_to_internal(self):
-        try:
-            while True:
-                job = self.collectJobs.get(block=False)
-                self.internal_list.append(job)
-        except Queue.Empty, e:
-            pass
-
     def run(self):
         while True:
             try:
                 self.add_missing_jobs()
-                self.add_all_jobs_to_internal()
                 self.log.debug('Nodes to collect: %s'%self.internal_list)
                 for job in self.internal_list:
                     self.jobQueue.uploadResults(job)
@@ -172,7 +150,6 @@ class JobQueue(object):
             self.filesystem.rmtree(tmpPath)
 
     def processResults(self):
-        self.startCleanupThreads()
         allJobs = Job.getAllWhere(self.db, state=constants.RUNNING)
         self.log.info('%d jobs running...'%len(allJobs))
         for job in allJobs:
@@ -181,7 +158,6 @@ class JobQueue(object):
 
             job.update(self.db, state=constants.COLLECTING)
             self.log.info('Tests for %s are done! Collecting'%job)
-            self.collectResultsThread.collectJobs.put(job)
 
     def postResults(self):
         allJobs = Job.getAllWhere(self.db, state=constants.COLLECTED)

@@ -164,29 +164,3 @@ class FakeQueue(object):
     def put(self, stuff):
         self.items.append(stuff)
 
-class TestProcessResults(unittest.TestCase, QueueHelpers):
-    def test_empty_run(self):
-        q = self._make_queue()
-        q.collectResultsThread = mock.Mock(spec=job_queue.CollectResultsThread)
-
-        q.processResults()
-
-    def test_running_jobs_collected(self):
-        q = self._make_queue()
-        with q.db.get_session() as session:
-            j = job.Job()
-            session.add(j)
-            j.state = constants.RUNNING
-        q.collectResultsThread = mock.Mock(spec=job_queue.CollectResultsThread)
-        collect_q = q.collectResultsThread.collectJobs = FakeQueue()
-
-        q.processResults()
-
-        self.assertEquals(
-            [j], collect_q.items
-        )
-
-        with q.db.get_session() as session:
-            j, = session.query(job.Job).all()
-
-        self.assertEquals(constants.COLLECTING, j.state)
