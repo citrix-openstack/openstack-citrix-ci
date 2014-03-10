@@ -112,10 +112,9 @@ class TestInit(unittest.TestCase, QueueHelpers):
 
         # Only node 2 should be deleted
         dnt = job_queue.DeleteNodeThread(q)
-        dnt.add_missing_jobs()
-        self.assertEquals(len(dnt.internal_list), 1)
-        j = dnt.internal_list[0]
-        self.assertEquals(2, j.node_id)
+        jobs = dnt.get_jobs()
+        self.assertEquals(len(jobs), 1)
+        self.assertEquals(2, jobs[0].node_id)
 
 
 class TestUploadResults(unittest.TestCase, QueueHelpers):

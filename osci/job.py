@@ -191,7 +191,7 @@ class Job(db.Base):
             return "Aborted: Failed to copy logs"
 
     def __repr__(self):
-        return "%(project_name)s/%(change_num)s state:%(state)s" %self
+        return "%(id)s (%(project_name)s/%(change_num)s) %(state)s" %self
 
     def __getitem__(self, item):
         return getattr(self, item)

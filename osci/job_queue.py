@@ -20,9 +20,9 @@ class DeleteNodeThread(threading.Thread):
         self.jobQueue = jobQueue
         self.pool = self.jobQueue.nodepool
         self.daemon = True
-        self.internal_list = []
 
-    def add_missing_jobs(self):
+    def get_jobs(self):
+        delete_list = []
         with self.jobQueue.db.get_session() as session:
             finished_node_jobs = session.query(Job).filter(and_(Job.state.in_([constants.COLLECTED,
                                                                                constants.FINISHED,
@@ -30,15 +30,15 @@ class DeleteNodeThread(threading.Thread):
                                                            Job.node_id != 0))
 
             for job in finished_node_jobs:
-                if job not in self.internal_list:
-                    self.internal_list.append(job)
+                delete_list.append(job)
+        return delete_list
 
     def run(self):
         while True:
             try:
-                self.add_missing_jobs()
-                self.log.debug('Nodes to delete: %s'%self.internal_list)
-                for job in self.internal_list:
+                delete_list = self.get_jobs()
+                self.log.debug('Nodes to delete: %s'%delete_list)
+                for job in delete_list:
                     job.update(self.jobQueue.db, node_id=0)
                     self.pool.deleteNode(job.node_id)
                 time.sleep(10)
@@ -53,21 +53,21 @@ class CollectResultsThread(threading.Thread):
         threading.Thread.__init__(self, name='CollectResultsThread')
         self.daemon = True
         self.jobQueue = jobQueue
-        self.internal_list = []
 
-    def add_missing_jobs(self):
+    def get_jobs(self):
+        ret_list = []
         collectingJobs = Job.getAllWhere(self.jobQueue.db,
                                          state=constants.COLLECTING)
         for job in collectingJobs:
-            if job not in self.internal_list:
-                self.internal_list.append(job)
+            ret_list.append(job)
+        return ret_list
 
     def run(self):
         while True:
             try:
-                self.add_missing_jobs()
-                self.log.debug('Nodes to collect: %s'%self.internal_list)
-                for job in self.internal_list:
+                collect_list = self.get_jobs()
+                self.log.debug('Nodes to collect: %s'%collect_list)
+                for job in collect_list:
                     self.jobQueue.uploadResults(job)
                 time.sleep(10)
             except Exception, e:
