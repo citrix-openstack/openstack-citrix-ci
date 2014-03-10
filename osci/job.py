@@ -167,7 +167,7 @@ class Job(db.Base):
     def retrieveResults(self, dest_path):
         if not self.node_ip:
             self.log.error('Attempting to retrieve results for %s but no node IP address'%self)
-            return "Aborted: No IP"
+            return constants.NO_IP
         try:
             code, stdout, stderr = utils.execute_command('ssh -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i %s %s@%s cat result.txt'%(
                     Configuration().NODE_KEY, Configuration().NODE_USERNAME, self.node_ip), silent=True,
@@ -183,12 +183,12 @@ class Job(db.Base):
                 # This node is broken somehow... Mark it as aborted
                 if self.result and self.result.startswith('Aborted: '):
                     return self.result
-                return "Aborted: No result found"
+                return constants.NORESULT
 
             return stdout.splitlines()[0]
         except Exception, e:
             self.log.exception(e)
-            return "Aborted: Failed to copy logs"
+            return constants.COPYFAIL
 
     def __repr__(self):
         return "%(id)s (%(project_name)s/%(change_num)s) %(state)s" %self
