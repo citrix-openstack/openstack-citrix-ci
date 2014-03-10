@@ -208,6 +208,19 @@ class TestRetrieveResults(unittest.TestCase):
         self.assertEquals('Reported status', result)
 
     @mock.patch('osci.job.utils')
+    def test_logs_copied(self, fake_utils):
+        job = Job()
+        job.node_ip = 'ip'
+        fake_utils.execute_command.return_value = (
+            0, 'Reported status\nAnd some\nRubbish', 'err')
+
+        result = job.retrieveResults('ignored')
+
+        fake_utils.execute_command.assert_called_once_with(
+            'ssh -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i /usr/workspace/scratch/openstack/infrastructure.hg/keys/nodepool jenkins@ip cat result.txt',
+            silent=True, return_streams=True)
+
+    @mock.patch('osci.job.utils')
     def test_status_cannot_be_retrieved_old_status_used(self, fake_utils):
         job = Job()
         job.node_ip = 'ip'
