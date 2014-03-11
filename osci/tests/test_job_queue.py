@@ -14,11 +14,14 @@ from osci import constants
 
 class FakeNodePool(object):
     def __init__(self):
-        self.node_ids = []
+        self.node_ids = set()
 
     def deleteNode(self, node_id):
         assert node_id in self.node_ids, "node %s does not exist" % node_id
-        self.node_ids = [id for id in self.node_ids if id != node_id]
+        self.node_ids.discard(node_id)
+
+    def getHeldNodes(self):
+        return self.node_ids
 
 
 class QueueHelpers(object):
@@ -62,7 +65,7 @@ class TestInit(unittest.TestCase, QueueHelpers):
         with q.db.get_session() as session:
             j, = session.query(job.Job).all()
             j.node_id = 666
-        q.nodepool.node_ids.append(666)
+        q.nodepool.node_ids.add(666)
 
         q.addJob('refs/changes/61/65261/7', 'project', 'commit')
 
@@ -108,13 +111,53 @@ class TestInit(unittest.TestCase, QueueHelpers):
             jobs[1].node_id = 1
             jobs[2].state = constants.OBSOLETE
             jobs[2].node_id = 2
-        q.nodepool.node_ids.extend([1, 2])
+        q.nodepool.node_ids.add(1)
+        q.nodepool.node_ids.add(2)
 
         # Only node 2 should be deleted
         dnt = job_queue.DeleteNodeThread(q)
-        jobs = dnt.get_jobs()
-        self.assertEquals(len(jobs), 1)
-        self.assertEquals(2, jobs[0].node_id)
+        dnt.update_finished_jobs()
+        nodes = dnt.get_nodes()
+        self.assertEquals(len(nodes), 1)
+        self.assertIn(2, nodes)
+
+    def test_delete_thread_clears_node(self):
+        q = self._make_queue()
+        q.addJob('refs/changes/61/65261/7', 'project', 'commit1')
+        with q.db.get_session() as session:
+            jobs = session.query(job.Job).all()
+            jobs[0].state = constants.FINISHED
+            jobs[0].node_id = 1
+        q.nodepool.node_ids.add(1)
+
+        dnt = job_queue.DeleteNodeThread(q)
+        nodes = dnt.get_nodes()
+        self.assertEquals(0, len(nodes))
+        dnt.update_finished_jobs()
+        nodes = dnt.get_nodes()
+        self.assertIn(1, nodes)
+        job1, = job.Job.getAllWhere(q.db)
+        self.assertEquals(0, job1.node_id)
+
+    @mock.patch('osci.job_queue.time.sleep')
+    def test_delete_thread_cycle(self, mock_sleep):
+        q = self._make_queue()
+        q.addJob('refs/changes/61/65261/7', 'project', 'commit1')
+        with q.db.get_session() as session:
+            jobs = session.query(job.Job).all()
+            jobs[0].state = constants.FINISHED
+            jobs[0].node_id = 1
+        q.nodepool.node_ids.add(1)
+
+        dnt = job_queue.DeleteNodeThread(q)
+        dnt._continue = mock.Mock()
+        dnt._continue.side_effect = [True, False]
+        dnt.run()
+        
+        job1, = job.Job.getAllWhere(q.db)
+        self.assertEquals(0, job1.node_id)
+        self.assertEquals(0, len(q.nodepool.node_ids))
+        mock_sleep.assert_called_with(10)
 
 
 class TestUploadResults(unittest.TestCase, QueueHelpers):
