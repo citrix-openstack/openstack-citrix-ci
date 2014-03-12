@@ -15,4 +15,5 @@ date > $CI_DIR/recent_finished.txt
 date > $CI_DIR/all_failures.txt
 /usr/local/bin/osci-view failures >> $CI_DIR/all_failures.txt
 
-/usr/local/bin/osci-upload $CI_DIR ci_status
+# Upload to the "status" container so the CDN will refresh every 15 minutes
+/usr/local/bin/osci-upload -c status $CI_DIR ci_status

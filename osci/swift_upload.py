@@ -13,6 +13,8 @@ def get_parser():
     parser = optparse.OptionParser(usage=usage)
     parser.add_option('-v', '--verbose', dest='verbose', action='store_true',
                       default=False, help='enable verbose (debug) logging')
+    parser.add_option('-c', '--container', dest='container',
+                      help='Container to upload to.  Defaults to config file setting.')
 
     return parser
 
@@ -79,7 +81,7 @@ class SwiftUploader(object):
             else:
                 raise UploadException('Failed to upload %s'%source)
 
-    def upload(self, local_dir, cf_prefix):
+    def upload(self, local_dir, cf_prefix, container_name=None):
         pyrax.set_setting('identity_type', 'rackspace')
         try:
             pyrax.set_credentials(Configuration().SWIFT_USERNAME, Configuration().SWIFT_API_KEY)
@@ -88,7 +90,9 @@ class SwiftUploader(object):
             raise
         cf = pyrax.cloudfiles
 
-        container = cf.create_container(Configuration().SWIFT_CONTAINER)
+        if not container_name:
+            container_name = Configuration().SWIFT_CONTAINER
+        container = cf.create_container(container_name)
 
         contents = _html_start_stansa(cf_prefix)
         filenames = os.listdir(local_dir)
@@ -130,7 +134,7 @@ def main():
     local_dir = args[0]
     cf_prefix = args[1]
 
-    SwiftUploader().upload(local_dir, cf_prefix)
+    SwiftUploader().upload(local_dir, cf_prefix, options.container)
 
 
 if __name__ == "__main__":

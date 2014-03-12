@@ -37,6 +37,9 @@ def get_parser():
 
     parser_fail = subparsers.add_parser('failures')
     parser_fail.set_defaults(func=func_failures)
+    parser_fail.add_argument('--recent', dest='recent',
+                             action='store', default=None,
+                             help="Include only recent jobs (hours)")
 
     return parser
 

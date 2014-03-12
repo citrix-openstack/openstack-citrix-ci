@@ -59,7 +59,6 @@ def main():
         change_num, patchset = options.change_ref.split('/')[-2:]
         patch_details = utils.get_patchset_details(change_num, patchset)
         # Verify we got the right patch back
-        assert patch_details['ref'] == options.change_ref
         queue.addJob(patch_details['ref'], patch_details['project'], patch_details['revision'])
         return
 
