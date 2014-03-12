@@ -1,5 +1,6 @@
+import datetime
 import unittest
-import  mock
+import mock
 
 from osci import commands
 from osci import executor
@@ -150,6 +151,16 @@ class TestWatchGerrit(unittest.TestCase):
             ['EVENT'], cmd.event_target.fake_events
         )
 
+    @mock.patch('osci.commands.time_services.now')
+    def test_event_seen_recently(self, mock_now):
+        cmd = commands.WatchGerrit(dict(event_target='fake'))
+        cmd.last_event = datetime.datetime(2000,01,01,00,00,00,00)
+        cmd.recent_event_time = datetime.timedelta(minutes=10)
+        mock_now.return_value = cmd.last_event + datetime.timedelta(seconds=5)
+        self.assertTrue(cmd.event_seen_recently())
+        mock_now.return_value = cmd.last_event + datetime.timedelta(hours=1)
+        self.assertFalse(cmd.event_seen_recently())
+
 class TestWatchGerritMainLoop(unittest.TestCase):
     def setUp(self):
         self.cmd = cmd = commands.WatchGerrit()
@@ -181,6 +192,16 @@ class TestWatchGerritMainLoop(unittest.TestCase):
     def test_call_reconnects(self):
         cmd = self.cmd
         cmd.event_seen_recently.return_value = False
+        cmd._retry_connect.side_effect = [True, True, False]
+        cmd()
+        self.assertEquals(2,
+                          len(cmd.gerrit_client.fake_connect_calls))
+        self.assertEquals(2,
+                          len(cmd.gerrit_client.fake_disconnect_calls))
+
+    def test_call_reconnects_error_event(self):
+        cmd = self.cmd
+        cmd.do_event_handling.side_effect = commands.GerritEventError
         cmd._retry_connect.side_effect = [True, True, False]
         cmd()
         self.assertEquals(2,

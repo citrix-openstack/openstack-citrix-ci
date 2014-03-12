@@ -205,6 +205,10 @@ def get_filter(env):
     ])
 
 
+def get_error_filter(env):
+    return EventTypeFilter(events.ErrorEvent)
+
+
 def get_client(env):
     if env and 'pygerrit' == env.get('gerrit_client'):
         return PyGerritClient(env)

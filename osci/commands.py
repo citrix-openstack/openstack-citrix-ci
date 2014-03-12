@@ -102,6 +102,8 @@ class CreateDBSchema(object):
     def __call__(self):
         self.database.create_schema()
 
+class GerritEventError(Exception):
+    pass
 
 class WatchGerrit(object):
     DEFAULT_SLEEP_TIMEOUT = 5
@@ -128,13 +130,14 @@ class WatchGerrit(object):
 
         self.gerrit_client = gerrit.get_client(env)
         self.event_filter = gerrit.get_filter(env)
+        self.error_filter = gerrit.get_error_filter(env)
         log.info("Event filter: %s", self.event_filter)
         self.event_target = event_target.get_target(dict(env, queue=self.queue))
         self.sleep_timeout = int(env.get('sleep_timeout',
                                          self.DEFAULT_SLEEP_TIMEOUT))
         self.last_event = time_services.now()
-        self.recent_event_time = datetime.timedelta(int(env.get('recent_event_time',
-                                                                self.DEFAULT_EVENT_TIME)))
+        recent_seconds = int(env.get('recent_event_time', self.DEFAULT_EVENT_TIME))
+        self.recent_event_time = datetime.timedelta(seconds=recent_seconds)
 
     @classmethod
     def parameters(cls):
@@ -165,16 +168,20 @@ class WatchGerrit(object):
             if self.event_filter.is_event_matching_criteria(event):
                 log.info("Consuming event [%s]", event)
                 self.consume_event(event)
+            elif self.error_filter.is_event_matching_criteria(event):
+                raise GerritEventError('Event [%s] matched error filter'%event)
             event = self.get_event()
 
     def _retry_connect(self):
         return True
 
     def __call__(self):
-        print "Start"
         while self._retry_connect():
             self.gerrit_client.connect()
-            while self.event_seen_recently():
-                self.do_event_handling()
-                self.sleep()
+            try:
+                while self.event_seen_recently():
+                    self.do_event_handling()
+                    self.sleep()
+            except GerritEventError, e:
+                log.exception(e)
             self.gerrit_client.disconnect()
