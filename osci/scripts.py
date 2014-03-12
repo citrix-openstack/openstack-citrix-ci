@@ -23,7 +23,9 @@ def run_command(cmd_class, env=None):
 
 
 def setup_logging():
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(
+        format=u'%(asctime)s %(levelname)s %(name)s %(message)s',
+        level=logging.DEBUG)
 
 
 def check_connection():

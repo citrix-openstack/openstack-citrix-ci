@@ -153,11 +153,6 @@ class WatchGerrit(object):
         now = time_services.now()
         return (now - self.last_event) < self.recent_event_time
 
-    def get_filtered_event(self):
-        event = self.get_event()
-        if self.event_filter.is_event_matching_criteria(event):
-            return event
-
     def consume_event(self, event):
         self.event_target.consume_event(event)
 
@@ -165,11 +160,12 @@ class WatchGerrit(object):
         time.sleep(self.sleep_timeout)
 
     def do_event_handling(self):
-        event = self.get_filtered_event()
+        event = self.get_event()
         while event:
-            log.info("Consuming event [%s]", event)
-            self.consume_event(event)
-            event = self.get_filtered_event()
+            if self.event_filter.is_event_matching_criteria(event):
+                log.info("Consuming event [%s]", event)
+                self.consume_event(event)
+            event = self.get_event()
 
     def _retry_connect(self):
         return True

@@ -116,16 +116,20 @@ class TestWatchGerrit(unittest.TestCase):
         cmd.gerrit_client.fake_insert_event('EVENT')
         self.assertEquals('EVENT', cmd.get_event())
 
-    def test_filtered_event_removes_non_matching(self):
+    def test_filter_ignores_non_matching(self):
         cmd = commands.WatchGerrit()
+        cmd.consume_event = mock.Mock()
         cmd.event_filter = gerrit.DummyFilter(False)
         cmd.gerrit_client.fake_insert_event('EVENT')
-        self.assertEquals(None, cmd.get_filtered_event())
+        cmd.do_event_handling()
+        self.assertEquals(0, len(cmd.consume_event.mock_calls))
 
-    def test_filter_event_if_no_event_available(self):
+    def test_handling_no_event_available(self):
         cmd = commands.WatchGerrit()
+        cmd.consume_event = mock.Mock()
         cmd.event_filter = gerrit.DummyFilter(False)
-        self.assertEquals(None, cmd.get_filtered_event())
+        cmd.do_event_handling()
+        self.assertEquals(0, len(cmd.consume_event.mock_calls))
 
     def test_parameters(self):
         cmd = commands.WatchGerrit()
@@ -200,23 +204,23 @@ class TestEventHandling(unittest.TestCase):
     def setUp(self):
         self.cmd = cmd = commands.WatchGerrit()
         self.patchers = [
-            mock.patch.object(cmd, 'get_filtered_event'),
+            mock.patch.object(cmd, 'get_event'),
             mock.patch.object(cmd, 'consume_event'),
             ]
         [patcher.start() for patcher in self.patchers]
 
     def test_event_handling(self):
         cmd = self.cmd
-        cmd.get_filtered_event.side_effect = ['EVENT', None]
+        cmd.get_event.side_effect = ['EVENT', None]
 
         cmd.do_event_handling()
 
         cmd.consume_event.assert_called_once_with('EVENT')
-        cmd.get_filtered_event.assert_has_calls([mock.call(), mock.call()])
+        cmd.get_event.assert_has_calls([mock.call(), mock.call()])
 
     def test_event_handling_no_event(self):
         cmd = self.cmd
-        cmd.get_filtered_event.return_value = None
+        cmd.get_event.return_value = None
         cmd.do_event_handling()
         self.assertEquals([], cmd.consume_event.mock_calls)
 

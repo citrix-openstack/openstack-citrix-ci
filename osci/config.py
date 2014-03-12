@@ -37,8 +37,8 @@ class Configuration(object):
         'SWIFT_UPLOAD_ATTEMPTS': '5',
         'SWIFT_API_KEY': ' ',
         'VOTE': 'True',
-        'VOTE_PASSED_ONLY': 'True',
-        'VOTE_NEGATIVE': 'False',
+        'VOTE_PASSED_ONLY': 'False',
+        'VOTE_NEGATIVE': 'True',
         'VOTE_SERVICE_ACCOUNT': 'False',
         'VOTE_MESSAGE': "%(result)s using XenAPI driver with XenServer 6.2: Logs at %(log)s\n\n"+\
                       "Standard recheck supported; use \"recheck xenserver\" to trigger only "+\
