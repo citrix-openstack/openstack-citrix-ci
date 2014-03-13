@@ -35,6 +35,15 @@ class NodePool():
                 return node.id, node.ip
         return None, None
 
+    def getHeldNodes(self):
+        heldNodes = set()
+        with self.getSession() as session:
+            for node in session.getNodes():
+                if node.state != self.nodedb.HOLD:
+                    continue
+                heldNodes.add(node.id)
+        return heldNodes
+
     def deleteNode(self, node_id):
         if not node_id:
             return

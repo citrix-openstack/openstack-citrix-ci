@@ -21,26 +21,39 @@ class DeleteNodeThread(threading.Thread):
         self.pool = self.jobQueue.nodepool
         self.daemon = True
 
-    def get_jobs(self):
-        delete_list = []
+    def update_finished_jobs(self):
+        # Remove the node_id from all finished nodes
         with self.jobQueue.db.get_session() as session:
             finished_node_jobs = session.query(Job).filter(and_(Job.state.in_([constants.COLLECTED,
                                                                                constants.FINISHED,
                                                                                constants.OBSOLETE]),
                                                            Job.node_id != 0))
-
             for job in finished_node_jobs:
-                delete_list.append(job)
-        return delete_list
+                job.update(self.jobQueue.db, node_id=0)
+
+    def get_nodes(self):
+        # Find all node IDs that are currently in use
+        nodes_in_use = set()
+        with self.jobQueue.db.get_session() as session:
+            jobs_with_node = session.query(Job).filter(Job.node_id != 0)
+            for job in jobs_with_node:
+                nodes_in_use.add(job.node_id)
+
+        # Subtract the in-use nodes from the held nodes to find the list to delete
+        held_set = self.pool.getHeldNodes()
+        return held_set - nodes_in_use
+
+    def _continue(self):
+        return True
 
     def run(self):
-        while True:
+        while self._continue():
             try:
-                delete_list = self.get_jobs()
+                self.update_finished_jobs()
+                delete_list = self.get_nodes()
                 self.log.debug('Nodes to delete: %s'%delete_list)
-                for job in delete_list:
-                    self.pool.deleteNode(job.node_id)
-                    job.update(self.jobQueue.db, node_id=0)
+                for node_id in delete_list:
+                    self.pool.deleteNode(node_id)
                 time.sleep(10)
             except Exception, e:
                 self.log.exception(e)
@@ -62,8 +75,11 @@ class CollectResultsThread(threading.Thread):
             ret_list.append(job)
         return ret_list
 
+    def _continue(self):
+        return True
+    
     def run(self):
-        while True:
+        while self._continue():
             try:
                 collect_list = self.get_jobs()
                 self.log.debug('Nodes to collect: %s'%collect_list)
