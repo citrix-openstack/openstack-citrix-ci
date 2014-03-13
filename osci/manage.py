@@ -53,14 +53,14 @@ def main():
         uploader=swift_upload.SwiftUploader(),
         executor=utils.execute_command)
     
-    queue.startCleanupThreads()
-
     if options.change_ref:
         change_num, patchset = options.change_ref.split('/')[-2:]
         patch_details = utils.get_patchset_details(change_num, patchset)
         # Verify we got the right patch back
         queue.addJob(patch_details['ref'], patch_details['project'], patch_details['revision'])
         return
+
+    queue.startCleanupThreads()
 
     try:
         while True:
