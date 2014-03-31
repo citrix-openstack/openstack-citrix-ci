@@ -65,6 +65,17 @@ class Job(db.Base):
             )
 
     @classmethod
+    def getRecent(cls, db, recent=24):
+        recent_date = time_services.now() - datetime.timedelta(hours=recent)
+        with db.get_session() as session:
+            return (
+                session
+                    .query(cls)
+                    .filter(cls.updated > recent_date)
+                    .order_by(cls.updated).all()
+            )
+
+    @classmethod
     def retrieve(cls, database, project_name, change_num):
         with database.get_session() as session:
             results = (
