@@ -10,6 +10,7 @@ from osci import filesystem_services
 from osci import utils
 from osci import nodepool_manager
 from osci import constants
+from osci import time_services
 
 class FakeNodePool(nodepool_manager.NodePool):
     def __init__(self, image):
@@ -44,6 +45,7 @@ class FakeNodePool(nodepool_manager.NodePool):
         node.id = id
         node.ip = ip
         node.state = state
+        node.state_time = time_services.time()
         node.image_name = self.image
         self.nodes.append(node)
         
@@ -72,3 +74,18 @@ class TestNodepoolManager(unittest.TestCase):
         self.npm.deleteNode(1)
         self.npm.pool.deleteNode.assert_called_with(self.npm.mock_session, node)
         self.assertEquals(0, len(self.npm.nodes))
+
+    @mock.patch('osci.time_services.time')
+    def test_held_state_age(self, mock_time):
+        self.npm = FakeNodePool('image')
+        # First two time()'s are for the node state time.
+        # Third return value is in getHeldNodes for the current
+        # time
+        mock_time.side_effect = [5100, 5000, 5105]
+        self.npm.addNode(1, 'ip_1', self.npm.nodedb.HOLD)
+        self.npm.addNode(2, 'ip_2', self.npm.nodedb.HOLD)
+        # With the time at 5105, only node 2 is more than 50
+        # seconds old
+        nodes = self.npm.getHeldNodes(min_state_age=50)
+        self.assertEquals(1, len(nodes))
+        self.assertEquals(set([2]), nodes)

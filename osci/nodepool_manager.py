@@ -35,11 +35,16 @@ class NodePool():
                 return node.id, node.ip
         return None, None
 
-    def getHeldNodes(self):
+    def getHeldNodes(self, min_state_age=300):
         heldNodes = set()
+        oldStateTime = int(time_services.time()) - min_state_age
+        print oldStateTime
         with self.getSession() as session:
             for node in session.getNodes():
+                print node, node.state, node.state_time
                 if node.state != self.nodedb.HOLD:
+                    continue
+                if node.state_time >= oldStateTime:
                     continue
                 heldNodes.add(node.id)
         return heldNodes
