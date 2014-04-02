@@ -26,7 +26,7 @@ def get_parser():
                              "Comma separated from %s"%(
                                  ', '.join(constants.STATES.values())))
     parser_list.add_argument('--recent', dest='recent',
-                             action='store', default=None,
+                             action='store', default="24",
                              help="Include only recent jobs (hours)")
 
     parser_show = subparsers.add_parser('show')
@@ -48,19 +48,19 @@ def func_list(options, queue):
                          "Age (hours)", "Duration"])
     table.align = 'l'
     now = time.time()
-    all_jobs = Job.getAllWhere(queue.db)
+    all_jobs = Job.getRecent(queue.db, int(options.recent))
     state_dict = {}
     result_dict = {}
     if options.states and len(options.states) > 0:
         states = options.states.split(',')
     else:
-        states = None
+        # Default should be everything except obsolete jobs
+        states = constants.STATES.values()
+        states.remove(constants.STATES[constants.OBSOLETE])
+
     for job in all_jobs:
         updated = time.mktime(job.updated.timetuple())
         age_hours = (now - updated) / 3600
-        if options.recent:
-            if age_hours > int(options.recent):
-                continue
         state_count = state_dict.get(constants.STATES[job.state], 0) + 1
         state_dict[constants.STATES[job.state]] = state_count
         result_count = result_dict.get(job.result, 0)+1
@@ -110,16 +110,13 @@ def func_failures(options, queue):
                              "Duration", "URL"])
     table.align = 'l'
     now = time.time()
-    all_jobs = Job.getAllWhere(queue.db)
+    all_jobs = Job.getRecent(queue.db, int(options.recent))
     for job in all_jobs:
         if not job.result or (job.result != 'Failed' and
                               job.result.find('Aborted') != 0):
             continue
         updated = time.mktime(job.updated.timetuple())
         age_hours = (now - updated) / 3600
-        if options.recent:
-            if age_hours > int(options.recent):
-                continue
         age = '%.02f' % (age_hours)
 
         duration = '-'
