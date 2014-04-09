@@ -135,7 +135,6 @@ class WatchGerrit(object):
         self.event_target = event_target.get_target(dict(env, queue=self.queue))
         self.sleep_timeout = int(env.get('sleep_timeout',
                                          self.DEFAULT_SLEEP_TIMEOUT))
-        self.last_event = time_services.now()
         recent_seconds = int(env.get('recent_event_time', self.DEFAULT_EVENT_TIME))
         self.recent_event_time = datetime.timedelta(seconds=recent_seconds)
 
@@ -178,10 +177,12 @@ class WatchGerrit(object):
     def __call__(self):
         while self._retry_connect():
             self.gerrit_client.connect()
+            self.last_event = time_services.now()
             try:
                 while self.event_seen_recently():
                     self.do_event_handling()
                     self.sleep()
+                log.info("Dropped out of event_seen_recently loop")
             except GerritEventError, e:
                 log.exception(e)
             self.gerrit_client.disconnect()
