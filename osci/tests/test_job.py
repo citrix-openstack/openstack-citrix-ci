@@ -86,6 +86,26 @@ class TestDBMethods(unittest.TestCase):
         self.assertEquals("project", job.project_name)
         self.assertEquals("change_num", job.change_num)
 
+    @mock.patch('osci.time_services.now')
+    def test_recent_jobs(self, now):
+        now.return_value = NOW
+        db = DB('sqlite://')
+        db.create_schema()
+        job1 = Job(change_num="change_num1", project_name="project")
+        job2 = Job(change_num="change_num2", project_name="project")
+        with db.get_session() as session:
+            session.add(job1)
+            job1.created=PAST
+            job1.db = db
+            job1.state=constants.RUNNING
+            job1.updated=PAST
+            session.add(job2)
+
+        recent_jobs = Job.getRecent(db)
+        self.assertEqual(len(recent_jobs), 1)
+        recent_jobs = Job.getRecent(db, 200000)
+        self.assertEqual(len(recent_jobs), 2)
+
 class TestRun(unittest.TestCase):
     @mock.patch.object(Job, 'update')
     @mock.patch.object(utils, 'getSSHObject')
