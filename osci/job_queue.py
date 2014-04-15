@@ -148,7 +148,7 @@ class JobQueue(object):
 
             self.log.info('Copying logs for %s', job)
             result_url = self.uploader.upload(tmpPath,
-                                                job.change_ref.replace('refs/changes/',''))
+                                              job.change_ref.replace('refs/changes/','')+'/%s'%job.id)
             self.log.info('Uploaded results for %s', job)
             job.update(self.db, result=result,
                        logs_url=result_url,
