@@ -89,21 +89,24 @@ def func_list(options, queue):
     return output_str
 
 def func_show(options, queue):
-    table = PrettyTable()
-    table.add_column('Key', ['Project name', 'Change num', 'Change ref',
-                             'state', 'created', 'Commit id', 'Node id',
-                             'Node ip', 'Result', 'Logs', 'Report',
-                             'Updated', 'Gerrit URL'])
-    job = Job.getAllWhere(queue.db, change_ref=options.change_ref)[0]
-    url = 'https://review.openstack.org/%s'%job.change_num
-    table.add_column('Value',
-                     [job.project_name, job.change_num, job.change_ref,
-                      constants.STATES[job.state], job.created,
-                      job.commit_id, job.node_id, job.node_ip,
-                      job.result, job.logs_url, job.report_url,
-                      job.updated, url])
-    table.align = 'l'
-    return str(table)
+    output_str = ''
+    jobs = Job.getAllWhere(queue.db, change_ref=options.change_ref)
+    for job in jobs:
+        table = PrettyTable()
+        table.add_column('Key', ['Project name', 'Change num', 'Change ref',
+                                 'state', 'created', 'Commit id', 'Node id',
+                                 'Node ip', 'Result', 'Logs', 'Report',
+                                 'Updated', 'Gerrit URL'])
+        url = 'https://review.openstack.org/%s'%job.change_num
+        table.add_column('Value',
+                         [job.project_name, job.change_num, job.change_ref,
+                          constants.STATES[job.state], job.created,
+                          job.commit_id, job.node_id, job.node_ip,
+                          job.result, job.logs_url, job.report_url,
+                          job.updated, url])
+        table.align = 'l'
+        output_str = output_str + str(table)+'\n'
+    return output_str
 
 def func_failures(options, queue):
     table = PrettyTable(["Project", "Change", "State", "Result", "Age",
