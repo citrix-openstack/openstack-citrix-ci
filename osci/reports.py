@@ -96,14 +96,14 @@ def func_show(options, queue):
         table.add_column('Key', ['Project name', 'Change num', 'Change ref',
                                  'state', 'created', 'Commit id', 'Node id',
                                  'Node ip', 'Result', 'Logs', 'Report',
-                                 'Updated', 'Gerrit URL'])
+                                 'Updated', 'Gerrit URL', 'Failures'])
         url = 'https://review.openstack.org/%s'%job.change_num
         table.add_column('Value',
                          [job.project_name, job.change_num, job.change_ref,
                           constants.STATES[job.state], job.created,
                           job.commit_id, job.node_id, job.node_ip,
                           job.result, job.logs_url, job.report_url,
-                          job.updated, url])
+                          job.updated, url, job.failed])
         table.align = 'l'
         output_str = output_str + str(table)+'\n'
     return output_str
@@ -128,7 +128,7 @@ def func_failures(options, queue):
             stopped = time.mktime(job.test_stopped.timetuple())
             duration = "%.02f"%((stopped - started)/3600)
 
-        table.add_row([job.id, job.project_name, job.change_num,
+        table.add_row([job.project_name, job.change_num,
                        constants.STATES[job.state], job.result, age,
                        duration, job.logs_url])
     return str(table)
