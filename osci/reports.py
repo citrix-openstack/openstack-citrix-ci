@@ -44,7 +44,7 @@ def get_parser():
     return parser
 
 def func_list(options, queue):
-    table = PrettyTable(["Project", "Change", "State", "IP", "Result",
+    table = PrettyTable(["ID", "Project", "Change", "State", "IP", "Result",
                          "Age (hours)", "Duration"])
     table.align = 'l'
     now = time.time()
@@ -80,7 +80,7 @@ def func_list(options, queue):
             stopped = time.mktime(job.test_stopped.timetuple())
             if started < stopped:
                 duration = "%.02f"%((stopped - started)/3600)
-        table.add_row([job.project_name, job.change_ref,
+        table.add_row([job.id, job.project_name, job.change_ref,
                        constants.STATES[job.state], node_ip, job.result,
                        age, duration])
     output_str = str(state_dict)+"\n"
@@ -109,7 +109,7 @@ def func_show(options, queue):
     return output_str
 
 def func_failures(options, queue):
-    table = PrettyTable(["Project", "Change", "State", "Result", "Age",
+    table = PrettyTable(["ID", "Project", "Change", "State", "Result", "Age",
                              "Duration", "URL"])
     table.align = 'l'
     now = time.time()
@@ -128,7 +128,7 @@ def func_failures(options, queue):
             stopped = time.mktime(job.test_stopped.timetuple())
             duration = "%.02f"%((stopped - started)/3600)
 
-        table.add_row([job.project_name, job.change_num,
+        table.add_row([job.id, job.project_name, job.change_num,
                        constants.STATES[job.state], job.result, age,
                        duration, job.logs_url])
     return str(table)
