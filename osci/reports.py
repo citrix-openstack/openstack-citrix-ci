@@ -38,7 +38,7 @@ def get_parser():
     parser_fail = subparsers.add_parser('failures')
     parser_fail.set_defaults(func=func_failures)
     parser_fail.add_argument('--recent', dest='recent',
-                             action='store', default=None,
+                             action='store', default="24",
                              help="Include only recent jobs (hours)")
 
     return parser
@@ -93,13 +93,13 @@ def func_show(options, queue):
     jobs = Job.getAllWhere(queue.db, change_ref=options.change_ref)
     for job in jobs:
         table = PrettyTable()
-        table.add_column('Key', ['Project name', 'Change num', 'Change ref',
+        table.add_column('Key', ['ID', 'Project name', 'Change num', 'Change ref',
                                  'state', 'created', 'Commit id', 'Node id',
                                  'Node ip', 'Result', 'Logs', 'Report',
                                  'Updated', 'Gerrit URL', 'Failures'])
         url = 'https://review.openstack.org/%s'%job.change_num
         table.add_column('Value',
-                         [job.project_name, job.change_num, job.change_ref,
+                         [job.id, job.project_name, job.change_num, job.change_ref,
                           constants.STATES[job.state], job.created,
                           job.commit_id, job.node_id, job.node_ip,
                           job.result, job.logs_url, job.report_url,
@@ -128,7 +128,7 @@ def func_failures(options, queue):
             stopped = time.mktime(job.test_stopped.timetuple())
             duration = "%.02f"%((stopped - started)/3600)
 
-        table.add_row([job.project_name, job.change_num,
+        table.add_row([job.id, job.project_name, job.change_num,
                        constants.STATES[job.state], job.result, age,
                        duration, job.logs_url])
     return str(table)
