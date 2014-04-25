@@ -23,6 +23,8 @@ class Configuration(object):
         'GERRIT_PORT': '29418',
         'MAX_RUNNING_TIME': str(3*3600+15*60), # 3 hours and 15 minutes
         'DATABASE_URL': 'mysql://root:@127.0.0.1/openstack_ci',
+        'KEEP_FAILED': '3',
+        'KEEP_FAILED_TIMEOUT': str(6*3600),
         'NODEPOOL_CONFIG': '/etc/nodepool/nodepool.yaml',
         'NODEPOOL_IMAGE': 'XSDSVM',
         'NODE_USERNAME': 'jenkins',

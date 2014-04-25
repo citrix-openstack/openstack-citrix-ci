@@ -10,6 +10,7 @@ from osci.job import Job
 from osci import constants
 from osci.utils import execute_command, copy_logs, vote
 from osci import filesystem_services
+from osci import time_services
 
 
 class DeleteNodeThread(threading.Thread):
@@ -23,12 +24,31 @@ class DeleteNodeThread(threading.Thread):
 
     def update_finished_jobs(self):
         # Remove the node_id from all finished nodes
+        keep_failed = Configuration().get_int('KEEP_FAILED')
+        keep_failed_timeout = Configuration().get_int('KEEP_FAILED_TIMEOUT')
+        earliest_failed = time_services.time() - keep_failed_timeout
+
         with self.jobQueue.db.get_session() as session:
             finished_node_jobs = session.query(Job).filter(and_(Job.state.in_([constants.COLLECTED,
                                                                                constants.FINISHED,
                                                                                constants.OBSOLETE]),
                                                            Job.node_id != 0))
+            
+            # Construct a list of all jobs that could be kept because they failed
+            keep_jobs = []
             for job in finished_node_jobs:
+                if job.result == 'Failed':
+                    updated = time.mktime(job.updated.timetuple())
+                    if updated < earliest_failed:
+                        continue
+                    keep_jobs.append(job)
+            # Only keep the <KEEP_FAILED> most recent failures
+            keep_jobs.sort(key=lambda x: x.updated)
+            keep_jobs = keep_jobs[-keep_failed:]
+
+            for job in finished_node_jobs:
+                if job in keep_jobs:
+                    continue
                 job.update(self.jobQueue.db, node_id=0)
 
     def get_nodes(self):
