@@ -1,15 +1,18 @@
+import datetime
 import unittest
 import logging
 import mock
 import Queue
 
+from osci import config
+from osci import constants
 from osci import db
 from osci import job_queue
 from osci import job
 from osci import filesystem_services
 from osci import utils
 from osci import swift_upload
-from osci import constants
+from osci import time_services
 
 
 class FakeNodePool(object):
@@ -147,6 +150,7 @@ class TestInit(unittest.TestCase, QueueHelpers):
             jobs = session.query(job.Job).all()
             jobs[0].state = constants.FINISHED
             jobs[0].node_id = 1
+            jobs[0].result = 'Passed'
         q.nodepool.node_ids.add(1)
 
         dnt = job_queue.DeleteNodeThread(q)
@@ -157,6 +161,78 @@ class TestInit(unittest.TestCase, QueueHelpers):
         job1, = job.Job.getAllWhere(q.db)
         self.assertEquals(0, job1.node_id)
         self.assertEquals(0, len(q.nodepool.node_ids))
+        mock_sleep.assert_called_with(10)
+
+    @mock.patch('osci.job_queue.time.sleep')
+    @mock.patch.object(config.Configuration, '_conf_file_contents')
+    def test_delete_thread_keeps_newest_failed(self, mock_conf_file, mock_sleep):
+        mock_conf_file.return_value = 'KEEP_FAILED=1'
+        config.Configuration().reread()
+
+        q = self._make_queue()
+        q.addJob('refs/changes/61/65261/7', 'project', 'commit1')
+        q.addJob('refs/changes/61/65262/7', 'project', 'commit2')
+        with q.db.get_session() as session:
+            jobs = session.query(job.Job).all()
+            jobs.sort(key=lambda x: x.id)
+            jobs[0].state = constants.FINISHED
+            jobs[0].node_id = 1
+            jobs[0].result = 'Failed'
+            jobs[0].updated = time_services.now() - datetime.timedelta(seconds=1)
+            jobs[1].state = constants.FINISHED
+            jobs[1].node_id = 2
+            jobs[1].result = 'Failed'
+            jobs[1].updated = time_services.now()
+        q.nodepool.node_ids.add(1)
+        q.nodepool.node_ids.add(2)
+
+        dnt = job_queue.DeleteNodeThread(q)
+        dnt._continue = mock.Mock()
+        dnt._continue.side_effect = [True, False]
+        dnt.run()
+        
+        jobs = job.Job.getAllWhere(q.db)
+        jobs.sort(key=lambda x: x.id)
+        self.assertEquals(0, jobs[0].node_id)
+        self.assertEquals(2, jobs[1].node_id)
+        self.assertEquals(1, len(q.nodepool.node_ids))
+        self.assertIn(2, q.nodepool.node_ids)
+        mock_sleep.assert_called_with(10)
+
+    @mock.patch('osci.job_queue.time.sleep')
+    @mock.patch.object(config.Configuration, '_conf_file_contents')
+    def test_delete_thread_discards_old_failed(self, mock_conf_file, mock_sleep):
+        mock_conf_file.return_value = 'KEEP_FAILED=10\nKEEP_FAILED_TIMEOUT=3600'
+        config.Configuration().reread()
+
+        q = self._make_queue()
+        q.addJob('refs/changes/61/65261/7', 'project', 'commit1')
+        q.addJob('refs/changes/61/65262/7', 'project', 'commit2')
+        with q.db.get_session() as session:
+            jobs = session.query(job.Job).all()
+            jobs.sort(key=lambda x: x.id)
+            jobs[0].state = constants.FINISHED
+            jobs[0].node_id = 1
+            jobs[0].result = 'Failed'
+            jobs[0].updated = time_services.now() - datetime.timedelta(hours=2)
+            jobs[1].state = constants.FINISHED
+            jobs[1].node_id = 2
+            jobs[1].result = 'Failed'
+            jobs[1].updated = time_services.now() - datetime.timedelta(minutes=1)
+        q.nodepool.node_ids.add(1)
+        q.nodepool.node_ids.add(2)
+
+        dnt = job_queue.DeleteNodeThread(q)
+        dnt._continue = mock.Mock()
+        dnt._continue.side_effect = [True, False]
+        dnt.run()
+        
+        jobs = job.Job.getAllWhere(q.db)
+        jobs.sort(key=lambda x: x.id)
+        self.assertEquals(0, jobs[0].node_id)
+        self.assertEquals(2, jobs[1].node_id)
+        self.assertEquals(1, len(q.nodepool.node_ids))
+        self.assertIn(2, q.nodepool.node_ids)
         mock_sleep.assert_called_with(10)
 
 
