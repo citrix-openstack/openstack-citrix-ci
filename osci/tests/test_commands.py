@@ -168,11 +168,8 @@ class TestWatchGerritMainLoop(unittest.TestCase):
             mock.patch.object(cmd, 'sleep'),
             mock.patch.object(cmd, 'do_event_handling'),
             mock.patch.object(cmd, 'event_seen_recently'),
-            mock.patch.object(cmd, '_retry_connect'),
             ]
         [patcher.start() for patcher in self.patchers]
-        cmd._retry_connect = mock.Mock()
-        cmd._retry_connect.side_effect = [True, False]
 
     def test_call_connects(self):
         cmd = self.cmd
@@ -188,26 +185,6 @@ class TestWatchGerritMainLoop(unittest.TestCase):
         cmd.event_seen_recently.side_effect = [True, False]
         cmd()
         cmd.do_event_handling.assert_called_once_with()
-
-    def test_call_reconnects(self):
-        cmd = self.cmd
-        cmd.event_seen_recently.return_value = False
-        cmd._retry_connect.side_effect = [True, True, False]
-        cmd()
-        self.assertEquals(2,
-                          len(cmd.gerrit_client.fake_connect_calls))
-        self.assertEquals(2,
-                          len(cmd.gerrit_client.fake_disconnect_calls))
-
-    def test_call_reconnects_error_event(self):
-        cmd = self.cmd
-        cmd.do_event_handling.side_effect = commands.GerritEventError
-        cmd._retry_connect.side_effect = [True, True, False]
-        cmd()
-        self.assertEquals(2,
-                          len(cmd.gerrit_client.fake_connect_calls))
-        self.assertEquals(2,
-                          len(cmd.gerrit_client.fake_disconnect_calls))
 
     def tearDown(self):
         [patcher.stop() for patcher in self.patchers]

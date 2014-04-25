@@ -171,18 +171,14 @@ class WatchGerrit(object):
                 raise GerritEventError('Event [%s] matched error filter'%event)
             event = self.get_event()
 
-    def _retry_connect(self):
-        return True
-
     def __call__(self):
-        while self._retry_connect():
-            self.gerrit_client.connect()
-            self.last_event = time_services.now()
-            try:
-                while self.event_seen_recently():
-                    self.do_event_handling()
-                    self.sleep()
-                log.info("Dropped out of event_seen_recently loop")
-            except GerritEventError, e:
-                log.exception(e)
-            self.gerrit_client.disconnect()
+        self.gerrit_client.connect()
+        self.last_event = time_services.now()
+        try:
+            while self.event_seen_recently():
+                self.do_event_handling()
+                self.sleep()
+            log.info("No events seen in %s seconds" % self.recent_event_time)
+        except GerritEventError as e:
+            log.exception(e)
+        self.gerrit_client.disconnect()
