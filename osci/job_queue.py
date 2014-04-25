@@ -40,10 +40,12 @@ class DeleteNodeThread(threading.Thread):
                 if job.result == 'Failed':
                     updated = time.mktime(job.updated.timetuple())
                     if updated < earliest_failed:
+                        self.log.debug('Not keeping %s; too old', job)
                         continue
                     keep_jobs.append(job)
             # Only keep the <KEEP_FAILED> most recent failures
             keep_jobs.sort(key=lambda x: x.updated)
+            self.log.debug('Keeping %s, discarding %s', keep_jobs[-keep_failed:], keep_jobs[:-keep_failed])
             keep_jobs = keep_jobs[-keep_failed:]
 
             for job in finished_node_jobs:
@@ -74,7 +76,7 @@ class DeleteNodeThread(threading.Thread):
                 self.log.debug('Nodes to delete: %s'%delete_list)
                 for node_id in delete_list:
                     self.pool.deleteNode(node_id)
-                time.sleep(10)
+                time.sleep(60)
             except Exception, e:
                 self.log.exception(e)
 
