@@ -32,7 +32,7 @@ class Configuration(object):
         'POLL': '30',
         'PROJECT_CONFIG': 'openstack/nova,openstack/tempest,openstack-dev/devstack',
         'RUN_TESTS': 'True',
-        'RECHECK_REGEXP': '^(citrix recheck|xenserver recheck|recheck xenserver|recheck bug|recheck nobug).*',
+        'RECHECK_REGEXP': '(citrix recheck|xenserver recheck|recheck xenserver|recheck bug|recheck nobug)',
         'REVIEW_REPO_NAME': 'review',
         'SWIFT_CONTAINER': 'CILogs',
         'SWIFT_USERNAME': 'citrix.nodepool2',

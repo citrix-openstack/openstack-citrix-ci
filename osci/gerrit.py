@@ -123,7 +123,7 @@ class CommentMatcher(EventFilter):
 
     def _is_event_matching_criteria(self, event):
         comment = event.comment
-        if self.matcher.match(comment):
+        if self.matcher.search(comment):
             return True
 
     def __str__(self):

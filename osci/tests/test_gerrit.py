@@ -25,7 +25,7 @@ class PatchesCreatedEvent(events.PatchsetCreatedEvent):
 class TestCommentMatcher(unittest.TestCase):
     def test_matching_success(self):
         matcher = mock.Mock()
-        matcher.match.return_value = True
+        matcher.search.return_value = True
 
         event_matcher = gerrit.CommentMatcher('')
         event_matcher.matcher = matcher
@@ -34,11 +34,11 @@ class TestCommentMatcher(unittest.TestCase):
             event_matcher.is_event_matching_criteria(
                 CommentAddedEvent()))
 
-        matcher.match.assert_called_once_with('COMMENT')
+        matcher.search.assert_called_once_with('COMMENT')
 
     def test_matching_fail(self):
         matcher = mock.Mock()
-        matcher.match.return_value = False
+        matcher.search.return_value = False
 
         event_matcher = gerrit.CommentMatcher('')
         event_matcher.matcher = matcher
@@ -47,7 +47,7 @@ class TestCommentMatcher(unittest.TestCase):
             event_matcher.is_event_matching_criteria(
                 CommentAddedEvent()))
 
-        matcher.match.assert_called_once_with('COMMENT')
+        matcher.search.assert_called_once_with('COMMENT')
 
     def test_none_event(self):
         event_matcher = gerrit.CommentMatcher('')
