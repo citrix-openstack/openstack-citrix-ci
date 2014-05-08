@@ -21,6 +21,13 @@ class FakeChange(object):
         self.branch = None
 
 
+class FakeAuthor(object):
+    def __init__(self):
+        self.name = None
+        self.email = None
+        self.username = None
+
+
 class FakePatchSet(object):
     def __init__(self):
         self.ref = None
@@ -116,6 +123,19 @@ class DummyFilter(object):
         return self.result
 
 
+class AuthorMatcher(EventFilter):
+    def __init__(self, author):
+        self.author = author
+
+    def _is_event_matching_criteria(self, event):
+        author = event.author.username
+        if author == self.author:
+            return True
+
+    def __str__(self):
+        return 'author equals {0}'.format(self.author)
+
+
 class CommentMatcher(EventFilter):
     def __init__(self, regexp):
         self.regexp = regexp
@@ -127,7 +147,7 @@ class CommentMatcher(EventFilter):
             return True
 
     def __str__(self):
-        return 'comment matches {0}'.format(self.matcher)
+        return 'comment matches {0}'.format(self.regexp)
 
 
 class ChangeMatcher(EventFilter):
@@ -186,8 +206,22 @@ class Or(EventFilter):
         return ' OR '.join(["(%s)" % f for f in self.filters])
 
 
+class Not(EventFilter):
+    def __init__(self, fltr):
+        self.fltr = fltr
+
+    def _is_event_matching_criteria(self, event):
+        if self.fltr.is_event_matching_criteria(event):
+            return False
+        return True
+
+    def __str__(self):
+        return ' NOT (%s)'%self.fltr
+
+
 def get_filter(env):
     comment_re = env and env.get('comment_re')
+    ignore_username = env and env.get('ignore_username')
     projects = env.get('projects').split(',') if env and env.get('projects') else None
     if not all([comment_re, projects]):
         return DummyFilter(True)
@@ -195,6 +229,7 @@ def get_filter(env):
     return Or([
         And([
             EventTypeFilter(events.CommentAddedEvent),
+            Not(AuthorMatcher(ignore_username)),
             CommentMatcher(comment_re),
             ChangeMatcher(projects),
         ]),

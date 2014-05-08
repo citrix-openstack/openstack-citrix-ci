@@ -9,17 +9,17 @@ class CommentAddedEvent(events.CommentAddedEvent):
     def __init__(self):
         self.comment = 'COMMENT'
         self.project = 'PROJECT'
-
-
-class FakeChange(object):
-    def __init__(self, project, branch):
-        self.branch = branch
-        self.project = project
+        self.author = gerrit.FakeAuthor()
+        self.author.name = 'NAME'
+        self.author.email = 'EMAIL'
+        self.author.username = 'USERNAME'
 
 
 class PatchesCreatedEvent(events.PatchsetCreatedEvent):
     def __init__(self, project='project', branch='master'):
-        self.change = FakeChange(project, branch)
+        self.change = gerrit.FakeChange()
+        self.change.project = project
+        self.change.branch = branch
 
 
 class TestCommentMatcher(unittest.TestCase):
@@ -53,6 +53,25 @@ class TestCommentMatcher(unittest.TestCase):
         event_matcher = gerrit.CommentMatcher('')
         self.assertFalse(event_matcher.is_event_matching_criteria(None))
 
+
+class TestAuthorMatcher(unittest.TestCase):
+    def test_matching_success(self):
+        event_matcher = gerrit.AuthorMatcher('USERNAME')
+
+        self.assertTrue(
+            event_matcher.is_event_matching_criteria(
+                CommentAddedEvent()))
+
+    def test_matching_fail(self):
+        event_matcher = gerrit.AuthorMatcher('')
+
+        self.assertFalse(
+            event_matcher.is_event_matching_criteria(
+                CommentAddedEvent()))
+
+    def test_none_event(self):
+        event_matcher = gerrit.AuthorMatcher('')
+        self.assertFalse(event_matcher.is_event_matching_criteria(None))
 
 
 class TestChangeMatcher(unittest.TestCase):
@@ -206,15 +225,17 @@ class TestGetFilter(unittest.TestCase):
     def test_get_filter(self, compile):
         compile.return_value = 'compiled'
         f = gerrit.get_filter(
-            dict(projects='p1,p2,p3', comment_re='comment_re'))
+            dict(projects='p1,p2,p3', comment_re='comment_re', ignore_username='ignore_username'))
 
-        self.assertEquals('compiled', f.filters[0].filters[1].matcher)
-        self.assertEquals(['p1', 'p2', 'p3'], f.filters[0].filters[2].projects)
+        self.assertEquals('ignore_username', f.filters[0].filters[1].fltr.author)
+        self.assertEquals('compiled', f.filters[0].filters[2].matcher)
+        self.assertEquals(['p1', 'p2', 'p3'], f.filters[0].filters[3].projects)
 
         self.assertEquals(
             '('
                 '(event is CommentAddedEvent)'
-                ' AND (comment matches compiled)'
+                ' AND ( NOT (author equals ignore_username))'
+                ' AND (comment matches comment_re)'
                 ' AND (branch==master, project in [p1,p2,p3])'
             ') OR ('
                 '(event is PatchsetCreatedEvent)'
@@ -230,6 +251,8 @@ class FakeCommentEvent(gerrit.events.CommentAddedEvent):
         self.change = gerrit.FakeChange()
         self.change.branch = "master"
         self.change.project = "nova"
+        self.author = gerrit.FakeAuthor()
+        self.author.username = 'author_username'
 
 
 class TestCitrixFilter(unittest.TestCase):
@@ -238,7 +261,8 @@ class TestCitrixFilter(unittest.TestCase):
 
         f = gerrit.get_filter(dict(
             projects='nova',
-            comment_re='hello'
+            comment_re='hello',
+            ignore_authors='none',
         ))
 
         self.assertTrue(f.is_event_matching_criteria(e))
