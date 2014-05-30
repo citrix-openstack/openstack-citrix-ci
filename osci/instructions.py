@@ -7,8 +7,10 @@ def check_out_testrunner():
 
 def update_testrunner(changeref):
     return [
-        '/usr/bin/git fetch https://review.openstack.org/stackforge/xenapi-os-testing %s'.split(),
-        '/usr/bin/git checkout FETCH_HEAD'.split()]
+        'pushd xenapi-os-testing'.split(),
+        ('/usr/bin/git fetch https://review.openstack.org/stackforge/xenapi-os-testing %s'%changeref).split(),
+        '/usr/bin/git checkout FETCH_HEAD'.split(),
+        'popd'.split()]
 
 def execute_test_runner():
     return '/home/jenkins/xenapi-os-testing/run_tests.sh'.split()
