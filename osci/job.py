@@ -133,6 +133,10 @@ class Job(db.Base):
         cmd = 'echo %s >> run_tests_env' % ' '.join(instructions.check_out_testrunner())
         utils.execute_command('ssh -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i %s %s@%s %s'%(
                 Configuration().NODE_KEY, Configuration().NODE_USERNAME, node_ip, cmd))
+        if self.project_name == 'stackforge/xenapi-os-testing':
+            cmd = 'echo %s >> run_tests_env' % ' '.join(instructions.update_testrunner(self.change_ref))
+            utils.execute_command('ssh -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i %s %s@%s %s'%(
+                    Configuration().NODE_KEY, Configuration().NODE_USERNAME, node_ip, cmd))
         cmd = 'echo "%s %s" >> run_tests_env' % (
             ' '.join(environment.get_environment(self.change_ref)),
             ' '.join(instructions.execute_test_runner()))
