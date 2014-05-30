@@ -82,9 +82,10 @@ class RunTests(object):
         )
 
         if self.project_name == 'stackforge/xenapi-os-testing':
-            self.executor.run(
-                self.node.run(instructions.update_testrunner(self.change_ref))
-            )
+            for instruction in instructions.update_testrunner(self.change_ref):
+                self.executor.run(
+                    self.node.run(instruction)
+                )
 
         self.executor.run(
             self.node.run(

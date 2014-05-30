@@ -74,16 +74,17 @@ class TestRunTests(unittest.TestCase):
 
         self.maxDiff = 4096
 
-        self.assertEquals(
-            [
+        expected = [
                 SCP + ['tempest_exclusion_list', 'NODE_USERNAME@NODE_HOST:/tmp/tempest_exclusion_list'],
-                SSH_TO_NODE + instructions.check_out_testrunner(),
-                SSH_TO_NODE + instructions.update_testrunner('CHANGE'),
+                SSH_TO_NODE + instructions.check_out_testrunner()]
+        for instruction in instructions.update_testrunner('CHANGE'):
+            expected.append(SSH_TO_NODE + instruction)
+        expected.extend([
                 SSH_TO_NODE + environment.get_environment('stackforge/xenapi-os-testing', 'CHANGE')
                 + instructions.execute_test_runner()
-            ],
-            cmd.executor.executed_commands
-        )
+            ])
+
+        self.assertEquals(expected, cmd.executor.executed_commands)
 
 
 class TestWatchGerrit(unittest.TestCase):

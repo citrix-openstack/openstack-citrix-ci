@@ -6,13 +6,9 @@ def check_out_testrunner():
     ).split()
 
 def update_testrunner(changeref):
-    return (
-        '/usr/bin/git fetch'
-        ' https://review.openstack.org/stackforge/xenapi-os-testing %s'
-        ' && /usr/bin/git checkout FETCH_HEAD'
-    ).split()
+    return [
+        '/usr/bin/git fetch https://review.openstack.org/stackforge/xenapi-os-testing %s'.split(),
+        '/usr/bin/git checkout FETCH_HEAD'.split()]
 
 def execute_test_runner():
-    return (
-        '/home/jenkins/xenapi-os-testing/run_tests.sh'.split()
-    )
+    return '/home/jenkins/xenapi-os-testing/run_tests.sh'.split()

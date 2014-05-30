@@ -130,18 +130,18 @@ class Job(db.Base):
 
         self.update(db, node_id=node_id, node_ip=node_ip, result='')
 
-        cmd = 'echo %s >> run_tests_env' % ' '.join(instructions.check_out_testrunner())
-        utils.execute_command('ssh -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i %s %s@%s %s'%(
-                Configuration().NODE_KEY, Configuration().NODE_USERNAME, node_ip, cmd))
+        instruction_list = []
+        instruction_list.append(" ".join(instructions.check_out_testrunner()))
         if self.project_name == 'stackforge/xenapi-os-testing':
-            cmd = 'echo %s >> run_tests_env' % ' '.join(instructions.update_testrunner(self.change_ref))
+            instruction_list.extend(" ".join(instructions.update_testrunner(self.change_ref)))
+        instruction_list.append("%s %s"%(" ".join(environment.get_environment(self.project_name, self.change_ref)),
+                                         " ".join(instructions.execute_test_runner())))
+
+        for instruction in instruction_list:
+            cmd = 'echo "%s" >> run_tests_env' % instruction
             utils.execute_command('ssh -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i %s %s@%s %s'%(
-                    Configuration().NODE_KEY, Configuration().NODE_USERNAME, node_ip, cmd))
-        cmd = 'echo "%s %s" >> run_tests_env' % (
-            ' '.join(environment.get_environment(self.project_name, self.change_ref)),
-            ' '.join(instructions.execute_test_runner()))
-        utils.execute_command('ssh -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i %s %s@%s %s'%(
                 Configuration().NODE_KEY, Configuration().NODE_USERNAME, node_ip, cmd))
+
         # For some reason invoking this immediately fails...
         time.sleep(5)
         utils.execute_command('ssh$-q$-o$BatchMode=yes$-o$UserKnownHostsFile=/dev/null$-o$StrictHostKeyChecking=no$-i$%s$%s@%s$nohup bash /home/jenkins/run_tests_env < /dev/null > run_tests.log 2>&1 &'%(
