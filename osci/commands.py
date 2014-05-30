@@ -65,10 +65,11 @@ class RunTests(object):
         self.executor = executor.create_executor(env.get('executor'))
         self.node = node.Node(env)
         self.change_ref = env.get('change_ref')
+        self.project_name = env.get('project_name')
 
     @classmethod
     def parameters(cls):
-        return ['executor'] + node.Node.parameters() + ['change_ref']
+        return ['executor'] + node.Node.parameters() + ['change_ref', 'project_name']
 
     def __call__(self):
         self.executor.run(
@@ -80,9 +81,14 @@ class RunTests(object):
             self.node.run(instructions.check_out_testrunner())
         )
 
+        if self.project_name == 'stackforge/xenapi-os-testing':
+            self.executor.run(
+                self.node.run(instructions.update_testrunner(self.change_ref))
+            )
+
         self.executor.run(
             self.node.run(
-                environment.get_environment(self.change_ref)
+                environment.get_environment(self.project_name, self.change_ref)
                 + instructions.execute_test_runner())
         )
 

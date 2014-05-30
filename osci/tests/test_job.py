@@ -9,6 +9,7 @@ from osci.job import Job
 from osci.config import Configuration
 from osci.db import DB
 from osci import time_services
+from osci import instructions
 
 
 PAST = datetime.datetime(1980, 1, 1, 1, 2, 3)
@@ -155,6 +156,24 @@ class TestRun(unittest.TestCase):
         update_call1 = mock.call("DB", node_id='new_node', result='', node_ip='ip')
         update_call2 = mock.call("DB", state=constants.RUNNING)
         mock_update.assert_has_calls([update_call1, update_call2])
+
+    @mock.patch.object(time, 'sleep')
+    @mock.patch.object(Job, 'update')
+    @mock.patch.object(utils, 'execute_command')
+    @mock.patch.object(instructions, 'update_testrunner')
+    def test_runTest_update_test_runner(self, mock_update_testrunner,
+                                mock_execute_command,
+                                mock_update, mock_sleep):
+        job = Job(change_num="change_num", change_ref='change_ref',
+                  project_name="stackforge/xenapi-os-testing")
+
+        nodepool = mock.Mock()
+        nodepool.getNode.return_value = ('new_node', 'ip')
+        ssh = mock.Mock()
+
+        job.runJob("DB", nodepool)
+
+        mock_update_testrunner.assert_has_calls([mock.call('change_ref')])
 
 class TestRunning(unittest.TestCase):
     def test_isRunning_no_ip(self):

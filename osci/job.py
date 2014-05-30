@@ -138,7 +138,7 @@ class Job(db.Base):
             utils.execute_command('ssh -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i %s %s@%s %s'%(
                     Configuration().NODE_KEY, Configuration().NODE_USERNAME, node_ip, cmd))
         cmd = 'echo "%s %s" >> run_tests_env' % (
-            ' '.join(environment.get_environment(self.change_ref)),
+            ' '.join(environment.get_environment(self.project_name, self.change_ref)),
             ' '.join(instructions.execute_test_runner()))
         utils.execute_command('ssh -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i %s %s@%s %s'%(
                 Configuration().NODE_KEY, Configuration().NODE_USERNAME, node_ip, cmd))

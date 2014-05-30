@@ -31,7 +31,7 @@ class TestRunTests(unittest.TestCase):
     def test_parameters(self):
         cmd = commands.RunTests
         self.assertEquals(
-            ['executor', 'node_username', 'node_host', 'change_ref'],
+            ['executor', 'node_username', 'node_host', 'change_ref', 'project_name'],
             cmd.parameters()
         )
 
@@ -52,7 +52,7 @@ class TestRunTests(unittest.TestCase):
         self.assertIsNotNone(cmd.node)
 
     def test_execution(self):
-        cmd = commands.RunTests(dict(change_ref='CHANGE'))
+        cmd = commands.RunTests(dict(project_name='PROJECT', change_ref='CHANGE'))
         cmd()
 
         self.maxDiff = 4096
@@ -62,7 +62,24 @@ class TestRunTests(unittest.TestCase):
                 SCP + ['tempest_exclusion_list', 'NODE_USERNAME@NODE_HOST:/tmp/tempest_exclusion_list'],
                 SSH_TO_NODE + instructions.check_out_testrunner(),
                 SSH_TO_NODE
-                + environment.get_environment('CHANGE')
+                + environment.get_environment('PROJECT', 'CHANGE')
+                + instructions.execute_test_runner()
+            ],
+            cmd.executor.executed_commands
+        )
+
+    def test_execution_update_testrunner(self):
+        cmd = commands.RunTests(dict(project_name='stackforge/xenapi-os-testing', change_ref='CHANGE'))
+        cmd()
+
+        self.maxDiff = 4096
+
+        self.assertEquals(
+            [
+                SCP + ['tempest_exclusion_list', 'NODE_USERNAME@NODE_HOST:/tmp/tempest_exclusion_list'],
+                SSH_TO_NODE + instructions.check_out_testrunner(),
+                SSH_TO_NODE + instructions.update_testrunner('CHANGE'),
+                SSH_TO_NODE + environment.get_environment('stackforge/xenapi-os-testing', 'CHANGE')
                 + instructions.execute_test_runner()
             ],
             cmd.executor.executed_commands
