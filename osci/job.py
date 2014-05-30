@@ -133,7 +133,8 @@ class Job(db.Base):
         instruction_list = []
         instruction_list.append(" ".join(instructions.check_out_testrunner()))
         if self.project_name == 'stackforge/xenapi-os-testing':
-            instruction_list.extend(" ".join(instructions.update_testrunner(self.change_ref)))
+            for instruction in instructions.update_testrunner(self.change_ref):
+                instruction_list.append(" ".join(instruction))
         instruction_list.append("%s %s"%(" ".join(environment.get_environment(self.project_name, self.change_ref)),
                                          " ".join(instructions.execute_test_runner())))
 
