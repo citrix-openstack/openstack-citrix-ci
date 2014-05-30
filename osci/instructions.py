@@ -1,7 +1,7 @@
 def check_out_testrunner():
     return (
         '/usr/bin/git clone'
-        ' https://github.com/citrix-openstack/xenapi-os-testing'
+        ' https://git.openstack.org/stackforge/xenapi-os-testing'
         ' /home/jenkins/xenapi-os-testing'
     ).split()
 

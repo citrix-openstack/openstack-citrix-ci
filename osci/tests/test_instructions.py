@@ -7,7 +7,7 @@ class TestCheckOutTestRunner(unittest.TestCase):
     def test_command(self):
         self.assertEquals(
             "/usr/bin/git clone"
-            " https://github.com/citrix-openstack/xenapi-os-testing"
+            " https://git.openstack.org/stackforge/xenapi-os-testing"
             " /home/jenkins/xenapi-os-testing".split(),
             instructions.check_out_testrunner())
 
