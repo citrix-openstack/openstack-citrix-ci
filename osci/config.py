@@ -30,7 +30,7 @@ class Configuration(object):
         'NODE_USERNAME': 'jenkins',
         'NODE_KEY': '/usr/workspace/scratch/openstack/infrastructure.hg/keys/nodepool',
         'POLL': '30',
-        'PROJECT_CONFIG': 'openstack/nova,openstack/tempest,openstack-dev/devstack,stackforge/xenapi-os-testing',
+        'PROJECT_CONFIG': 'openstack/nova,openstack/tempest,openstack-dev/devstack,stackforge/xenapi-os-testing,openstack-infra/devstack-gate',
         'RUN_TESTS': 'True',
         'RECHECK_REGEXP': '(citrix recheck|xenserver recheck|recheck xenserver|recheck bug|recheck nobug)',
         'REVIEW_REPO_NAME': 'review',
