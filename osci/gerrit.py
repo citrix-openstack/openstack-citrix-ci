@@ -139,7 +139,7 @@ class AuthorMatcher(EventFilter):
 class CommentMatcher(EventFilter):
     def __init__(self, regexp):
         self.regexp = regexp
-        self.matcher = re.compile(regexp)
+        self.matcher = re.compile(regexp, re.IGNORECASE)
 
     def _is_event_matching_criteria(self, event):
         comment = event.comment
