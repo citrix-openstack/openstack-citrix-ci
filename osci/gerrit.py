@@ -124,16 +124,19 @@ class DummyFilter(object):
 
 
 class AuthorMatcher(EventFilter):
-    def __init__(self, author):
-        self.author = author
+    def __init__(self, authors):
+        if authors is None:
+            self.authors = []
+        else:
+            self.authors = authors.split(',')
 
     def _is_event_matching_criteria(self, event):
         author = event.author.username
-        if author == self.author:
+        if author in self.authors:
             return True
 
     def __str__(self):
-        return 'author equals {0}'.format(self.author)
+        return 'author in {0}'.format(self.authors)
 
 
 class CommentMatcher(EventFilter):
@@ -221,7 +224,7 @@ class Not(EventFilter):
 
 def get_filter(env):
     comment_re = env and env.get('comment_re')
-    ignore_username = env and env.get('ignore_username')
+    ignore_usernames = env and env.get('ignore_usernames')
     projects = env.get('projects').split(',') if env and env.get('projects') else None
     if not all([comment_re, projects]):
         return DummyFilter(True)
@@ -229,7 +232,7 @@ def get_filter(env):
     return Or([
         And([
             EventTypeFilter(events.CommentAddedEvent),
-            Not(AuthorMatcher(ignore_username)),
+            Not(AuthorMatcher(ignore_usernames)),
             CommentMatcher(comment_re),
             ChangeMatcher(projects),
         ]),

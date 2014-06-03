@@ -23,6 +23,7 @@ class Configuration(object):
         'GERRIT_PORT': '29418',
         'MAX_RUNNING_TIME': str(3*3600+15*60), # 3 hours and 15 minutes
         'DATABASE_URL': 'mysql://root:@127.0.0.1/openstack_ci',
+        'IGNORE_USERNAMES': 'arista-test,brocade_jenkins,brocade-oss-service,bsn,cisco-openstack-ci,citrixjenkins,citrix_xenserver_ci,compass_ci,contrail,designate-jenkins,docker-ci,eci,elasticrecheck,freescale-ci,fuel-ci,fuel-watcher,huawei-ci,hyper-v-ci,ibmdb2,ibmpwrvc,ibmsdnve,ibm-zvm-ci,jaypipes-testing,jenkins,jenkins-magnetodb,launchpadsync,lvstest,mellanox,metaplugintest,midokura,murano-ci,nec-openstack-ci,netapp-ci,NetScalerAts,neutronryu,nicirabot,novaimagebuilder-jenkins,nuage-ci,odl-jenkins,pattabi-ayyasami-ci,plumgrid-ci,powerkvm,puppetceph,puppet-openstack-ci-user,radware3rdpartytesting,raxheatci,reddwarf,redhatci,rocktown,savanna-ci,sfci,smokestack,tailfncs,thstack-ci,trivial-rebase,turbo-hipster,vanillabot,varmourci,vmwareminesweeper,wherenowjenkins',
         'KEEP_FAILED': '3',
         'KEEP_FAILED_TIMEOUT': str(6*3600),
         'NODEPOOL_CONFIG': '/etc/nodepool/nodepool.yaml',

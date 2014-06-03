@@ -225,16 +225,19 @@ class TestGetFilter(unittest.TestCase):
     def test_get_filter(self, compile):
         compile.return_value = 'compiled'
         f = gerrit.get_filter(
-            dict(projects='p1,p2,p3', comment_re='comment_re', ignore_username='ignore_username'))
+            dict(projects='p1,p2,p3', comment_re='comment_re', ignore_usernames='ignore_username1,ignore_username2'))
 
-        self.assertEquals('ignore_username', f.filters[0].filters[1].fltr.author)
+        print f.filters[0].filters[1].fltr.authors
+
+        self.assertEquals('ignore_username1', f.filters[0].filters[1].fltr.authors[0])
+        self.assertEquals('ignore_username2', f.filters[0].filters[1].fltr.authors[1])
         self.assertEquals('compiled', f.filters[0].filters[2].matcher)
         self.assertEquals(['p1', 'p2', 'p3'], f.filters[0].filters[3].projects)
 
         self.assertEquals(
             '('
                 '(event is CommentAddedEvent)'
-                ' AND ( NOT (author equals ignore_username))'
+                ' AND ( NOT (author in [\'ignore_username1\', \'ignore_username2\']))'
                 ' AND (comment matches comment_re)'
                 ' AND (branch==master, project in [p1,p2,p3])'
             ') OR ('
@@ -262,7 +265,7 @@ class TestCitrixFilter(unittest.TestCase):
         f = gerrit.get_filter(dict(
             projects='nova',
             comment_re='hello',
-            ignore_authors='none',
+            ignore_usernames=None,
         ))
 
         self.assertTrue(f.is_event_matching_criteria(e))

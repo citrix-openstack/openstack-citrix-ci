@@ -46,7 +46,7 @@ def watch_gerrit():
         gerrit_username=c.get('GERRIT_USERNAME'),
         dburl=c.get('DATABASE_URL'),
         comment_re=c.get('RECHECK_REGEXP'),
-        ignore_username=c.get('GERRIT_USERNAME'),
+        ignore_usernames=c.get('IGNORE_USERNAMES'),
         projects=c.get('PROJECT_CONFIG'),
         recent_event_time=c.get('GERRIT_EVENT_TIMEOUT'),
         sleep_timeout=c.get('POLL')
