@@ -45,7 +45,8 @@ class Configuration(object):
         'VOTE_SERVICE_ACCOUNT': 'False',
         'VOTE_MESSAGE': "%(result)s using XenAPI driver with XenServer 6.2: Logs at %(log)s\n\n"+\
                       "Standard recheck supported; use \"recheck xenserver\" to trigger only "+\
-                      "xenserver re-check.  XenServer CI contact: openstack@citrix.com.",
+                      "xenserver re-check.  XenServer CI contact: openstack@citrix.com.\n\n"+\
+                      "Debugging suggestions at https://wiki.openstack.org/wiki/Debugging_XenServer_CI_failures",
         }
 
     def _conf_file_contents(self):
