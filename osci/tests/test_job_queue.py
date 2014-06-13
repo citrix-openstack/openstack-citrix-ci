@@ -165,6 +165,31 @@ class TestInit(unittest.TestCase, QueueHelpers):
 
     @mock.patch('osci.job_queue.time.sleep')
     @mock.patch.object(config.Configuration, '_conf_file_contents')
+    def test_delete_thread_keep_none(self, mock_conf_file, mock_sleep):
+        mock_conf_file.return_value = 'KEEP_FAILED=0'
+        config.Configuration().reread()
+
+        q = self._make_queue()
+        q.addJob('refs/changes/61/65261/7', 'project', 'commit1')
+        with q.db.get_session() as session:
+            jobs = session.query(job.Job).all()
+            jobs[0].state = constants.FINISHED
+            jobs[0].node_id = 1
+            jobs[0].result = 'Failed'
+        q.nodepool.node_ids.add(1)
+
+        dnt = job_queue.DeleteNodeThread(q)
+        dnt._continue = mock.Mock()
+        dnt._continue.side_effect = [True, False]
+        dnt.run()
+
+        job1, = job.Job.getAllWhere(q.db)
+        self.assertEquals(0, job1.node_id)
+        self.assertEquals(0, len(q.nodepool.node_ids))
+        mock_sleep.assert_called_with(60)
+
+    @mock.patch('osci.job_queue.time.sleep')
+    @mock.patch.object(config.Configuration, '_conf_file_contents')
     def test_delete_thread_keeps_newest_failed(self, mock_conf_file, mock_sleep):
         mock_conf_file.return_value = 'KEEP_FAILED=1'
         config.Configuration().reread()
