@@ -36,17 +36,18 @@ class DeleteNodeThread(threading.Thread):
             
             # Construct a list of all jobs that could be kept because they failed
             keep_jobs = []
-            for job in finished_node_jobs:
-                if job.result == 'Failed':
-                    updated = time.mktime(job.updated.timetuple())
-                    if updated < earliest_failed:
-                        self.log.debug('Not keeping %s; too old', job)
-                        continue
-                    keep_jobs.append(job)
-            # Only keep the <KEEP_FAILED> most recent failures
-            keep_jobs.sort(key=lambda x: x.updated)
-            self.log.debug('Keeping %s, discarding %s', keep_jobs[-keep_failed:], keep_jobs[:-keep_failed])
-            keep_jobs = keep_jobs[-keep_failed:]
+            if keep_failed > 0:
+                for job in finished_node_jobs:
+                    if job.result == 'Failed':
+                        updated = time.mktime(job.updated.timetuple())
+                        if updated < earliest_failed:
+                            self.log.debug('Not keeping %s; too old', job)
+                            continue
+                        keep_jobs.append(job)
+                # Only keep the <KEEP_FAILED> most recent failures
+                keep_jobs.sort(key=lambda x: x.updated)
+                self.log.debug('Keeping %s, discarding %s', keep_jobs[-keep_failed:], keep_jobs[:-keep_failed])
+                keep_jobs = keep_jobs[-keep_failed:]
 
             for job in finished_node_jobs:
                 if job in keep_jobs:
