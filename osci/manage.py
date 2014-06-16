@@ -68,6 +68,7 @@ def main():
                 queue.postResults()
                 queue.processResults()
                 queue.triggerJobs()
+                Configuration().check_reload()
             except Exception, e:
                 logging.exception(e)
                 # Ignore exception and try again; keeps the app polling

@@ -13,6 +13,7 @@ class Configuration(object):
         if not cls._instance:
             cls._instance = super(Configuration, cls).__new__(
                                 cls, *args, **kwargs)
+            cls._instance._last_read = 0
             cls._instance.reread()
         return cls._instance
 
@@ -54,6 +55,7 @@ class Configuration(object):
         filename = os.path.expandvars(filename)
         if os.path.exists(filename):
             with open(filename, 'r') as config:
+                self._last_read = os.stat(filename).st_mtime
                 return config.read()
         return "";
 
@@ -80,3 +82,9 @@ class Configuration(object):
         val = self.get(attr)
         return int(val)
 
+    def check_reload(self):
+        filename = os.path.expanduser(Configuration.CONFIG_FILE)
+        filename = os.path.expandvars(filename)
+        if os.path.exists(filename):
+            if os.stat(filename).st_mtime > self._last_read:
+                self.reread()

@@ -50,3 +50,15 @@ class TestConfig(unittest.TestCase):
         self.conf.reread()
         self.assertEqual(self.conf.POLL, '10')
         self.assertEqual(self.conf.RUN_TESTS, 'False')
+
+    @mock.patch.object(config.os, 'stat')
+    @mock.patch.object(config.os.path, 'exists')
+    @mock.patch.object(config.Configuration, 'reread')
+    def test_check_reload(self, conf_reread, os_exists, os_stat):
+        os_exists.return_value = True
+        mock_stat = mock.Mock()
+        mock_stat.st_mtime = 1
+        os_stat.return_value = mock_stat
+        self.conf._last_read = 0
+        self.conf.check_reload()
+        conf_reread.assert_called_once_with()
