@@ -120,7 +120,6 @@ class JobQueue(object):
         self.nodepool = nodepool
         self.collectResultsThread = None
         self.deleteNodeThread = None
-        self.jobs_enabled = Configuration().get_bool('RUN_TESTS')
         self.filesystem = filesystem
         self.uploader = uploader
         self.executor = executor
@@ -151,7 +150,7 @@ class JobQueue(object):
     def get_queued_enabled_jobs(self):
         allJobs = Job.getAllWhere(self.db, state=constants.QUEUED)
         self.log.info('%d jobs queued...'%len(allJobs))
-        if self.jobs_enabled:
+        if Configuration().get_bool('RUN_TESTS'):
             return allJobs
         return []
 

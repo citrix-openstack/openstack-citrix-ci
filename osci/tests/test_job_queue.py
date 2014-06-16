@@ -90,11 +90,11 @@ class TestInit(unittest.TestCase, QueueHelpers):
 
         self.assertEquals(1, len(q.get_queued_enabled_jobs()))
 
-    def test_get_queued_items_non_empty_disabled(self):
+    @mock.patch.object(config.Configuration, 'get_bool')
+    def test_get_queued_items_non_empty_disabled(self, mock_conf_get_bool):
         q = self._make_queue()
-
+        mock_conf_get_bool.return_value = False
         q.addJob('refs/changes/61/65261/7', 'project', 'commit')
-        q.jobs_enabled = False
         self.assertEquals(0, len(q.get_queued_enabled_jobs()))
 
     def test_get_queued_items_empty(self):
