@@ -143,6 +143,11 @@ class JobQueue(object):
             self.log.info("Job for %s queued"%job.change_num)
             session.add(job)
 
+    def triggerJob(self, job_id):
+        allJobs = Job.getAllWhere(self.db, id=job_id)
+        for job in allJobs:
+            job.runJob(self.db, self.nodepool)
+
     def triggerJobs(self):
         for job in self.get_queued_enabled_jobs():
             job.runJob(self.db, self.nodepool)

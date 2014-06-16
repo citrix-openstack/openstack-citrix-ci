@@ -26,6 +26,8 @@ def get_parser():
     parser.add_option('-c', '--change-ref', dest='change_ref', action="store",
                       type="string", help="One time job on a change-ref "+\
                       "e.g. refs/changes/55/7155/1")
+    parser.add_option('-r', '--run', dest='run_job', action="store",
+                      type="int", help="Run a job ID")
 
     return parser
 
@@ -58,6 +60,10 @@ def main():
         patch_details = utils.get_patchset_details(change_num, patchset)
         # Verify we got the right patch back
         queue.addJob(patch_details['ref'], patch_details['project'], patch_details['revision'])
+        return
+
+    if options.run_job:
+        queue.triggerJob(options.run_job)
         return
 
     queue.startCleanupThreads()
