@@ -83,7 +83,7 @@ class SwiftUploader(object):
 
     def upload_dir(self, local_dir, local_prefix, cf_prefix, container):
         contents = ""
-        filenames = os.listdir(local_dir)
+        filenames = os.listdir(os.path.join(local_dir, local_prefix))
         filenames.sort()
         if 'run_tests.log' in filenames:
             filenames.remove('run_tests.log')
