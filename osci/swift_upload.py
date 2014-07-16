@@ -81,7 +81,7 @@ class SwiftUploader(object):
             else:
                 raise UploadException('Failed to upload %s'%source)
 
-    def upload_dir(self, local_dir, cf_prefix, container):
+    def upload_dir(self, local_dir, local_prefix, cf_prefix, container):
         contents = ""
         filenames = os.listdir(local_dir)
         filenames.sort()
@@ -89,17 +89,18 @@ class SwiftUploader(object):
             filenames.remove('run_tests.log')
             filenames.insert(0, 'run_tests.log')
         for filename in filenames:
-            full_path = os.path.join(local_dir, filename)
+            full_path = os.path.join(local_dir, local_prefix, filename)
 
             if os.path.isdir(full_path):
-                contents = contents + self.upload_dir(full_path,
-                                                      os.path.join(cf_prefix, filename),
+                contents = contents + self.upload_dir(local_dir,
+                                                      os.path.join(local_prefix, filename),
+                                                      cf_prefix,
                                                       container)
             else:
                 stats = os.stat(full_path)
-                contents = contents + _html_file_stansa(filename, stats.st_size)
+                contents = contents + _html_file_stansa(os.path.join(local_prefix, filename), stats.st_size)
 
-                cf_name = "%s/%s"%(cf_prefix, filename)
+                cf_name = os.path.join(cf_prefix, local_prefix, filename)
                 self.upload_one_file(container, full_path, cf_name)
         return contents
 
@@ -120,7 +121,7 @@ class SwiftUploader(object):
 
         contents = _html_start_stansa(cf_prefix)
 
-        contents = contents + self.upload_dir(local_dir, cf_prefix, container)
+        contents = contents + self.upload_dir(local_dir, '', cf_prefix, container)
 
         contents = contents + _html_end_stansa()
         container.store_object('%s/results.html'%cf_prefix, contents)
