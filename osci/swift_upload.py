@@ -29,6 +29,8 @@ def get_content_type(filename):
         split_fn = split_fn[:-1]
     if split_fn[-1] in ['txt', 'log', 'conf', 'sh']:
         return 'text/plain'
+    if split_fn[0] in ['messages']:
+        return 'text/plain'
     if split_fn[-1] in ['html']:
         return 'text/html'
     return None
