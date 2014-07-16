@@ -1,5 +1,6 @@
-import logging
 import argparse
+import logging
+import re
 import time
 
 from prettytable import PrettyTable
@@ -109,11 +110,13 @@ def func_show(options, queue):
     return output_str
 
 def func_failures(options, queue):
+    output_str = ''
     table = PrettyTable(["ID", "Project", "Change", "State", "Result", "Age",
                              "Duration", "URL"])
     table.align = 'l'
     now = time.time()
     all_jobs = Job.getRecent(queue.db, int(options.recent))
+    all_failed_tests = {}
     for job in all_jobs:
         if not job.result or (job.result != 'Failed' and
                               job.result.find('Aborted') != 0):
@@ -131,7 +134,19 @@ def func_failures(options, queue):
         table.add_row([job.id, job.project_name, job.change_num,
                        constants.STATES[job.state], job.result, age,
                        duration, job.logs_url])
-    return str(table)
+        failed_tests = [m.group(0) for m in re.finditer('tempest.[^ ()]+', job.failed)]
+        if len(failed_tests) == 0:
+            failed_tests = ['No tempest failures detected']
+        for failed_test in failed_tests:
+            cur_count = all_failed_tests.get(failed_test, 0)
+            all_failed_tests[failed_test] = cur_count + 1
+
+    output_str += str(table) + '\n'
+
+    sorted_tests = sorted(all_failed_tests, key=all_failed_tests.get)
+    for failed_test in sorted_tests:
+        output_str += "%3d %s\n"%(all_failed_tests[failed_test], failed_test)
+    return output_str
 
 def main():
     parser = get_parser()
