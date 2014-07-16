@@ -81,6 +81,28 @@ class SwiftUploader(object):
             else:
                 raise UploadException('Failed to upload %s'%source)
 
+    def upload_dir(self, local_dir, cf_prefix, container):
+        contents = ""
+        filenames = os.listdir(local_dir)
+        filenames.sort()
+        if 'run_tests.log' in filenames:
+            filenames.remove('run_tests.log')
+            filenames.insert(0, 'run_tests.log')
+        for filename in filenames:
+            full_path = os.path.join(local_dir, filename)
+
+            if os.path.isdir(full_path):
+                contents = contents + self.upload_dir(full_path,
+                                                      os.path.join(cf_prefix, filename),
+                                                      container)
+            else:
+                stats = os.stat(full_path)
+                contents = contents + _html_file_stansa(filename, stats.st_size)
+
+                cf_name = "%s/%s"%(cf_prefix, filename)
+                self.upload_one_file(container, full_path, cf_name)
+        return contents
+
     def upload(self, local_dir, cf_prefix, container_name=None):
         pyrax.set_setting('identity_type', 'rackspace')
         try:
@@ -95,19 +117,8 @@ class SwiftUploader(object):
         container = cf.create_container(container_name)
 
         contents = _html_start_stansa(cf_prefix)
-        filenames = os.listdir(local_dir)
-        filenames.sort()
-        if 'run_tests.log' in filenames:
-            filenames.remove('run_tests.log')
-            filenames.insert(0, 'run_tests.log')
-        for filename in filenames:
-            full_path = os.path.join(local_dir, filename)
 
-            stats = os.stat(full_path)
-            contents = contents + _html_file_stansa(filename, stats.st_size)
-
-            cf_name = "%s/%s"%(cf_prefix, filename)
-            self.upload_one_file(container, full_path, cf_name)
+        contents = contents + self.upload_dir(local_dir, cf_prefix, container)
 
         contents = contents + _html_end_stansa()
         container.store_object('%s/results.html'%cf_prefix, contents)

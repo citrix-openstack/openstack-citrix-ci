@@ -1,7 +1,8 @@
-import mock
-import unittest
-import time
 import datetime
+import mock
+import time
+import stat
+import unittest
 
 from osci import constants
 from osci import utils
@@ -50,6 +51,13 @@ class TestUtilities(unittest.TestCase):
         self.assertEqual(None, swift_upload.get_content_type('filename.dat'))
 
 class TestSwiftUploader(unittest.TestCase):
+    def setUp(self):
+        self.mock_stat_file = mock.Mock()
+        self.mock_stat_file.st_mode = stat.S_IFREG
+        self.mock_stat_file.st_size = 1024
+        self.mock_stat_dir = mock.Mock()
+        self.mock_stat_dir.st_mode = stat.S_IFDIR
+
     @mock.patch('osci.swift_upload.pyrax')
     @mock.patch('osci.swift_upload.os')
     def test_upload_failed_auth(self, mock_os, mock_pyrax):
@@ -78,8 +86,7 @@ class TestSwiftUploader(unittest.TestCase):
     @mock.patch('osci.swift_upload.SwiftUploader.upload_one_file')
     def test_upload_ordered(self, mock_one_file, mock_os_stat, mock_os_listdir, mock_pyrax):
         mock_os_listdir.return_value=['b', 'd', 'c', 'a']
-        mock_stat = mock.Mock()
-        mock_os_stat.return_value = mock_stat
+        mock_os_stat.return_value = self.mock_stat_file
         mock_container = mock.Mock()
         mock_pyrax.cloudfiles.create_container.return_value = mock_container
         mock_container.cdn_uri = 'uri'
@@ -95,10 +102,24 @@ class TestSwiftUploader(unittest.TestCase):
     @mock.patch('osci.swift_upload.os.listdir')
     @mock.patch('osci.swift_upload.os.stat')
     @mock.patch('osci.swift_upload.SwiftUploader.upload_one_file')
+    def test_upload_subdir(self, mock_one_file, mock_os_stat, mock_os_listdir, mock_pyrax):
+        mock_os_listdir.side_effect=[['subdir'], ['file']]
+        mock_os_stat.side_effect = lambda x: self.mock_stat_dir if x[-3:] == 'dir' else self.mock_stat_file
+        mock_container = mock.Mock()
+        mock_pyrax.cloudfiles.create_container.return_value = mock_container
+        mock_container.cdn_uri = 'uri'
+        result = swift_upload.SwiftUploader().upload('localdir', 'prefix')
+        self.assertEqual(result, 'uri/prefix/results.html')
+        expected_calls = [mock.call(mock_container, 'localdir/subdir/file', 'prefix/subdir/file')]
+        mock_one_file.assert_has_calls(expected_calls)
+
+    @mock.patch('osci.swift_upload.pyrax')
+    @mock.patch('osci.swift_upload.os.listdir')
+    @mock.patch('osci.swift_upload.os.stat')
+    @mock.patch('osci.swift_upload.SwiftUploader.upload_one_file')
     def test_upload_run_tests_first(self, mock_one_file, mock_os_stat, mock_os_listdir, mock_pyrax):
         mock_os_listdir.return_value=['b', 'c', 'run_tests.log', 'a']
-        mock_stat = mock.Mock()
-        mock_os_stat.return_value = mock_stat
+        mock_os_stat.return_value = self.mock_stat_file
         mock_container = mock.Mock()
         mock_pyrax.cloudfiles.create_container.return_value = mock_container
         mock_container.cdn_uri = 'uri'
@@ -116,9 +137,7 @@ class TestSwiftUploader(unittest.TestCase):
     @mock.patch('osci.swift_upload.SwiftUploader.upload_one_file')
     def test_upload_html(self, mock_one_file, mock_os_stat, mock_os_listdir, mock_pyrax):
         mock_os_listdir.return_value=['b', 'c', 'run_tests.log', 'a.txt']
-        mock_stat = mock.Mock()
-        mock_os_stat.return_value = mock_stat
-        mock_stat.st_size = 1024
+        mock_os_stat.return_value = self.mock_stat_file
         mock_container = mock.Mock()
         mock_pyrax.cloudfiles.create_container.return_value = mock_container
         mock_container.cdn_uri = 'uri'
