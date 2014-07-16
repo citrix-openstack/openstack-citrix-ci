@@ -106,7 +106,9 @@ class SwiftUploader(object):
     def upload(self, local_dir, cf_prefix, container_name=None):
         pyrax.set_setting('identity_type', 'rackspace')
         try:
-            pyrax.set_credentials(Configuration().SWIFT_USERNAME, Configuration().SWIFT_API_KEY)
+            pyrax.set_credentials(Configuration().SWIFT_USERNAME,
+                                  Configuration().SWIFT_API_KEY,
+                                  region=Configuration().SWIFT_REGION)
         except pyrax.exceptions.AuthenticationFailed, e:
             self.logger.exception(e)
             raise

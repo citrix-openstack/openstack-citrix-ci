@@ -40,6 +40,7 @@ class Configuration(object):
         'SWIFT_USERNAME': 'citrix.nodepool2',
         'SWIFT_UPLOAD_ATTEMPTS': '5',
         'SWIFT_API_KEY': ' ',
+        'SWIFT_REGION': 'DFW',
         'VOTE': 'True',
         'VOTE_PASSED_ONLY': 'False',
         'VOTE_NEGATIVE': 'True',
