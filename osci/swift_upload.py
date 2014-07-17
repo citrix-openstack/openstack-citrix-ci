@@ -24,12 +24,12 @@ def get_content_encoding(filename):
     return None
 
 def get_content_type(filename):
-    split_fn = filename.split('.')
+    split_fn = filename.lower().split('.')
     if split_fn[-1] in ['gz']:
         split_fn = split_fn[:-1]
     if split_fn[-1] in ['txt', 'log', 'conf', 'sh']:
         return 'text/plain'
-    if split_fn[0] in ['messages']:
+    if split_fn[0] in ['messages', 'smlog']:
         return 'text/plain'
     if split_fn[-1] in ['html']:
         return 'text/html'

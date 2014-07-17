@@ -147,7 +147,7 @@ def get_patchset_details(change_id, patchset_id):
 
 def copy_dom0_logs(host, user, keyfile, local_directory):
     dom0_files = (
-        '/var/log/messages* /var/log/xensource* /opt/nodepool-scripts/*.log'
+        '/var/log/messages* /var/log/SMlog* /var/log/xensource* /opt/nodepool-scripts/*.log'
     )
 
     xecutor = Executor()

@@ -138,6 +138,9 @@ def func_failures(options, queue):
         if len(failed_tests) == 0:
             failed_tests = ['No tempest failures detected']
         for failed_test in failed_tests:
+            # Treat JSON and XML as the same since we're only interested in driver failures
+            failed_test = failed_test.replace('JSON', '')
+            failed_test = failed_test.replace('XML', '')
             cur_count = all_failed_tests.get(failed_test, 0)
             all_failed_tests[failed_test] = cur_count + 1
 
