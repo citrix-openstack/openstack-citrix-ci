@@ -145,10 +145,14 @@ def func_failures(options, queue):
             all_failed_tests[failed_test] = cur_count + 1
 
     output_str += str(table) + '\n'
+    output_str += '\n'
+    output_str += 'Duplicated failures\n'
+    output_str += '-------------------\n'
 
-    sorted_tests = sorted(all_failed_tests, key=all_failed_tests.get)
+    sorted_tests = sorted(all_failed_tests, key=all_failed_tests.get, reverse=True)
     for failed_test in sorted_tests:
-        output_str += "%3d %s\n"%(all_failed_tests[failed_test], failed_test)
+        if all_failed_tests[failed_test] > 1:
+            output_str += "%3d %s\n"%(all_failed_tests[failed_test], failed_test)
     return output_str
 
 def main():
