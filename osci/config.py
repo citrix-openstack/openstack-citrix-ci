@@ -34,7 +34,7 @@ class Configuration(object):
         'POLL': '30',
         'PROJECT_CONFIG': 'openstack/nova,openstack/tempest,openstack-dev/devstack,stackforge/xenapi-os-testing,openstack-infra/devstack-gate',
         'RUN_TESTS': 'True',
-        'RECHECK_REGEXP': '(citrix recheck|xenserver recheck|recheck xenserver|recheck bug|recheck nobug)',
+        'RECHECK_REGEXP': '(citrix recheck|xenserver:? recheck|recheck xenserver)',
         'REVIEW_REPO_NAME': 'review',
         'SWIFT_CONTAINER': 'CILogs',
         'SWIFT_USERNAME': 'citrix.nodepool2',
@@ -46,7 +46,7 @@ class Configuration(object):
         'VOTE_NEGATIVE': 'True',
         'VOTE_SERVICE_ACCOUNT': 'False',
         'VOTE_MESSAGE': "%(result)s using XenAPI driver with XenServer 6.2: Logs at %(log)s\n\n"+\
-                      "Standard recheck supported; use \"recheck xenserver\" to trigger only "+\
+                      "Use \"xenserver: recheck\" to trigger only "+\
                       "xenserver re-check.  XenServer CI contact: openstack@citrix.com.\n\n"+\
                       "Debugging suggestions at https://wiki.openstack.org/wiki/Debugging_XenServer_CI_failures",
         }
