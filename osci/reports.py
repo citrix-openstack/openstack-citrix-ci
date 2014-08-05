@@ -41,6 +41,9 @@ def get_parser():
     parser_fail.add_argument('--recent', dest='recent',
                              action='store', default="24",
                              help="Include only recent jobs (hours)")
+    parser_fail.add_argument('--with-fail', dest='withfail',
+                             action='store', default=None,
+                             help="Include only jobs with this failure")
 
     return parser
 
@@ -131,10 +134,19 @@ def func_failures(options, queue):
             stopped = time.mktime(job.test_stopped.timetuple())
             duration = "%.02f"%((stopped - started)/3600)
 
+        failed_tests = [m.group(0) for m in re.finditer('tempest.[^ ()]+', job.failed)]
+
+        if options.withfail is not None:
+            if len(options.withfail) == 0:
+                if len(failed_tests) != 0:
+                    continue
+            else:
+                if options.withfail not in job.failed:
+                    continue
+
         table.add_row([job.id, job.project_name, job.change_num,
                        constants.STATES[job.state], job.result, age,
                        duration, job.logs_url])
-        failed_tests = [m.group(0) for m in re.finditer('tempest.[^ ()]+', job.failed)]
         if len(failed_tests) == 0:
             failed_tests = ['No tempest failures detected']
         for failed_test in failed_tests:
