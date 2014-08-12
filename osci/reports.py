@@ -44,6 +44,9 @@ def get_parser():
     parser_fail.add_argument('--with-fail', dest='withfail',
                              action='store', default=None,
                              help="Include only jobs with this failure")
+    parser_fail.add_argument('--max-fails', dest='max_fails',
+                             action='store', default="10",
+                             help="Include only jobs with this failure")
 
     return parser
 
@@ -149,6 +152,8 @@ def func_failures(options, queue):
                        duration, job.logs_url])
         if len(failed_tests) == 0:
             failed_tests = ['No tempest failures detected']
+        if int(options.max_fails) > 0 and len(failed_tests) > int(options.max_fails):
+            failed_tests = ['More than %s failures'%options.max_fails]
         for failed_test in failed_tests:
             # Treat JSON and XML as the same since we're only interested in driver failures
             failed_test = failed_test.replace('JSON', '')
