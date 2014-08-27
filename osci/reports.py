@@ -46,7 +46,10 @@ def get_parser():
                              help="Include only jobs with this failure")
     parser_fail.add_argument('--max-fails', dest='max_fails',
                              action='store', default="10",
-                             help="Include only jobs with this failure")
+                             help="Include only jobs with at most this number of failures")
+    parser_fail.add_argument('--min-fails', dest='min_fails',
+                             action='store', default="2",
+                             help="Include only jobs with at least this number of failures")
 
     return parser
 
@@ -151,10 +154,14 @@ def func_failures(options, queue):
         table.add_row([job.id, job.project_name, job.change_num,
                        constants.STATES[job.state], job.result, age,
                        duration, job.logs_url])
+
         if len(failed_tests) == 0:
             failed_tests = ['No tempest failures detected']
-        if int(options.max_fails) > 0 and len(failed_tests) > int(options.max_fails):
+        elif int(options.max_fails) > 0 and len(failed_tests) > int(options.max_fails):
             failed_tests = ['More than %s failures'%options.max_fails]
+        elif len(failed_tests) < int(options.min_fails):
+            failed_tests = ['Fewer than %s failures'%options.min_fails]
+
         for failed_test in failed_tests:
             # Treat JSON and XML as the same since we're only interested in driver failures
             failed_test = failed_test.replace('JSON', '')
@@ -164,17 +171,13 @@ def func_failures(options, queue):
 
     output_str += str(table) + '\n'
     output_str += '\n'
-    output_str += 'Duplicated failures\n'
+    output_str += 'Failures\n'
     output_str += '-------------------\n'
 
     single_count =0
     sorted_tests = sorted(all_failed_tests, key=all_failed_tests.get, reverse=True)
     for failed_test in sorted_tests:
-        if all_failed_tests[failed_test] > 1:
-            output_str += "%3d %s\n"%(all_failed_tests[failed_test], failed_test)
-	else:
-            single_count = single_count+1
-    output_str += "%3d %s\n"%(single_count, 'Individual test failures')
+        output_str += "%3d %s\n"%(all_failed_tests[failed_test], failed_test)
     return output_str
 
 def main():
