@@ -132,7 +132,7 @@ class TestCopyDom0Logs(unittest.TestCase):
 
         expected_execution.pipe_run(
             n.command_to_get_dom0_files_as_tgz_to_stdout(
-                '/var/log/messages* /var/log/xensource* /opt/nodepool-scripts/*.log'),
+                '/var/log/messages* /var/log/SMlog* /var/log/xensource* /opt/nodepool-scripts/*.log'),
             this_host.commands_to_extract_stdout_tgz_to('target'))
 
         utils.copy_dom0_logs('ip', 'user', 'key', 'target')

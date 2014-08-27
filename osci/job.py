@@ -131,6 +131,8 @@ class Job(db.Base):
         self.update(db, node_id=node_id, node_ip=node_ip, result='')
 
         instruction_list = []
+        for instruction in instructions.update_devstackgate('origin/master'):
+            instruction_list.append(" ".join(instruction))
         instruction_list.append(" ".join(instructions.check_out_testrunner()))
         if self.project_name == 'stackforge/xenapi-os-testing':
             for instruction in instructions.update_testrunner(self.change_ref):
