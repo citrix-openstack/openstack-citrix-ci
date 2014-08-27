@@ -137,7 +137,8 @@ def func_failures(options, queue):
             stopped = time.mktime(job.test_stopped.timetuple())
             duration = "%.02f"%((stopped - started)/3600)
 
-        failed_tests = [m.group(0) for m in re.finditer('tempest.[^ ()]+', job.failed)]
+        job_failed = job.failed if job.failed is not None else ''
+        failed_tests = [m.group(0) for m in re.finditer('tempest.[^ ()]+', job_failed)]
 
         if options.withfail is not None:
             if len(options.withfail) == 0:
@@ -166,10 +167,14 @@ def func_failures(options, queue):
     output_str += 'Duplicated failures\n'
     output_str += '-------------------\n'
 
+    single_count =0
     sorted_tests = sorted(all_failed_tests, key=all_failed_tests.get, reverse=True)
     for failed_test in sorted_tests:
         if all_failed_tests[failed_test] > 1:
             output_str += "%3d %s\n"%(all_failed_tests[failed_test], failed_test)
+	else:
+            single_count = single_count+1
+    output_str += "%3d %s\n"%(single_count, 'Individual test failures')
     return output_str
 
 def main():
