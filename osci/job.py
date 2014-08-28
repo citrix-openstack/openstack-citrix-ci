@@ -147,7 +147,8 @@ class Job(db.Base):
 
         # For some reason invoking this immediately fails...
         time.sleep(5)
-        utils.execute_command('ssh$-q$-o$BatchMode=yes$-o$UserKnownHostsFile=/dev/null$-o$StrictHostKeyChecking=no$-i$%s$%s@%s$nohup bash /home/jenkins/run_tests_env < /dev/null > run_tests.log 2>&1 &'%(
+        utils.execute_command('ssh$-q$-o$BatchMode=yes$-o$UserKnownHostsFile=/dev/null$-o$StrictHostKeyChecking=no$-i$%s$%s@%s$'\
+                              'nohup bash "source workspace-cache/devstack-gate/functions.sh; tsfilter /home/jenkins/run_tests_env" < /dev/null > run_tests.log 2>&1 &'%(
                 Configuration().NODE_KEY, Configuration().NODE_USERNAME, node_ip), '$')
         self.update(db, state=constants.RUNNING)
 
