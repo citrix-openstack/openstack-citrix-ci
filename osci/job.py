@@ -130,7 +130,7 @@ class Job(db.Base):
 
         self.update(db, node_id=node_id, node_ip=node_ip, result='')
 
-        instruction_list = []
+        instruction_list = ["#!/bin/bash"]
         for instruction in instructions.update_devstackgate('origin/master'):
             instruction_list.append(" ".join(instruction))
         instruction_list.append(" ".join(instructions.check_out_testrunner()))
@@ -144,7 +144,9 @@ class Job(db.Base):
             cmd = 'echo "%s" >> run_tests_env' % instruction
             utils.execute_command('ssh -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i %s %s@%s %s'%(
                 Configuration().NODE_KEY, Configuration().NODE_USERNAME, node_ip, cmd))
-
+        cmd = "chmod +x run_tests_env"
+        utils.execute_command('ssh -q -o BatchMode=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i %s %s@%s %s'%(
+            Configuration().NODE_KEY, Configuration().NODE_USERNAME, node_ip, cmd))
         # For some reason invoking this immediately fails...
         time.sleep(5)
         utils.execute_command('ssh$-q$-o$BatchMode=yes$-o$UserKnownHostsFile=/dev/null$-o$StrictHostKeyChecking=no$-i$%s$%s@%s$'\
