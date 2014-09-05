@@ -47,9 +47,9 @@ def get_parser():
     parser_fail.add_argument('--max-fails', dest='max_fails',
                              action='store', default="10",
                              help="Include only jobs with at most this number of failures")
-    parser_fail.add_argument('--min-fails', dest='min_fails',
+    parser_fail.add_argument('--min-dup', dest='min_dup',
                              action='store', default="2",
-                             help="Include only jobs with at least this number of failures")
+                             help="Include only fails with at least this number of duplicates")
 
     return parser
 
@@ -159,8 +159,6 @@ def func_failures(options, queue):
             failed_tests = ['No tempest failures detected']
         elif int(options.max_fails) > 0 and len(failed_tests) > int(options.max_fails):
             failed_tests = ['More than %s failures'%options.max_fails]
-        elif len(failed_tests) < int(options.min_fails):
-            failed_tests = ['Fewer than %s failures'%options.min_fails]
 
         for failed_test in failed_tests:
             # Treat JSON and XML as the same since we're only interested in driver failures
@@ -168,6 +166,14 @@ def func_failures(options, queue):
             failed_test = failed_test.replace('XML', '')
             cur_count = all_failed_tests.get(failed_test, 0)
             all_failed_tests[failed_test] = cur_count + 1
+
+    if options.min_dup:
+        msg='Fewer than %s duplicates'%options.min_dup
+        for failed_test in list(all_failed_tests.keys()):
+            if all_failed_tests[failed_test] < int(options.min_dup):
+                cur_count = all_failed_tests.get(msg, 0)
+                all_failed_tests[msg] = cur_count + 1
+                del all_failed_tests[failed_test]
 
     output_str += str(table) + '\n'
     output_str += '\n'
