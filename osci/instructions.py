@@ -14,7 +14,7 @@ def update_testrunner(changeref):
 
 def update_devstackgate(branch):
     return [
-        'pushd workspace-cache/devstack-gate'.split(),
+        'pushd /opt/git/openstack-infra/devstack-gate'.split(),
         '/usr/bin/git remote update'.split(),
         ('/usr/bin/git checkout %s'%branch).split(),
         'popd'.split()]
