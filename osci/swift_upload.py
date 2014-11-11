@@ -15,6 +15,8 @@ def get_parser():
                       default=False, help='enable verbose (debug) logging')
     parser.add_option('-c', '--container', dest='container',
                       help='Container to upload to.  Defaults to config file setting.')
+    parser.add_option('-r', '--region', dest='region',
+                      help='Region to upload to.  Defaults to config file setting.')
 
     return parser
 
@@ -106,12 +108,14 @@ class SwiftUploader(object):
                 self.upload_one_file(container, full_path, cf_name)
         return contents
 
-    def upload(self, local_dir, cf_prefix, container_name=None):
+    def upload(self, local_dir, cf_prefix, region=None, container_name=None):
         pyrax.set_setting('identity_type', 'rackspace')
         try:
+            if not region:
+                region = Configuration().SWIFT_REGION
             pyrax.set_credentials(Configuration().SWIFT_USERNAME,
                                   Configuration().SWIFT_API_KEY,
-                                  region=Configuration().SWIFT_REGION)
+                                  region=region)
         except pyrax.exceptions.AuthenticationFailed, e:
             self.logger.exception(e)
             raise
@@ -150,7 +154,7 @@ def main():
     local_dir = args[0]
     cf_prefix = args[1]
 
-    SwiftUploader().upload(local_dir, cf_prefix, options.container)
+    SwiftUploader().upload(local_dir, cf_prefix, options.region, options.container)
 
 
 if __name__ == "__main__":
