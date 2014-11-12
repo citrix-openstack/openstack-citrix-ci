@@ -1,6 +1,7 @@
 import datetime
 import unittest
 import mock
+from nose import tools
 
 from osci import commands
 from osci import executor
@@ -27,18 +28,24 @@ SSH_TO_DOMZERO_FROM_NODE=(
 )
 
 
+def assert_parameters(expected_parameters, cmd):
+    params = []
+    def collect_arg(arg, *ignored, **kwignored):
+        params.append(arg)
+
+    mock_parser = mock.Mock()
+    mock_parser.add_argument.side_effect = collect_arg
+
+    cmd.add_arguments_to(mock_parser)
+    tools.assert_equals(
+        expected_parameters,
+        params
+    )
+
+
 class TestRunTests(unittest.TestCase):
     def test_arguments(self):
-        params = []
-        def collect_arg(arg, *ignored, **kwignored):
-            params.append(arg)
-
-        cmd = commands.RunTests
-        mock_parser = mock.Mock()
-        mock_parser.add_argument.side_effect = collect_arg
-
-        cmd.add_arguments_to(mock_parser)
-        self.assertEquals(
+        assert_parameters(
             [
                 'executor',
                 'node_username',
@@ -46,7 +53,7 @@ class TestRunTests(unittest.TestCase):
                 'change_ref',
                 'project_name'
             ],
-            params
+            commands.RunTests
         )
 
     def test_changeref_parsing(self):
@@ -165,14 +172,13 @@ class TestWatchGerrit(unittest.TestCase):
         self.assertEquals(0, len(cmd.consume_event.mock_calls))
 
     def test_parameters(self):
-        cmd = commands.WatchGerrit()
-        self.assertEquals(
+        assert_parameters(
             [
                 'gerrit_client', 'gerrit_host', 'event_target',
                 'gerrit_port', 'gerrit_username', 'dburl',
                 'comment_re', 'projects'
             ],
-            cmd.parameters()
+            commands.WatchGerrit()
         )
 
     def test_consume_event(self):
