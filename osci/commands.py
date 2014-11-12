@@ -25,12 +25,13 @@ class CheckConnection(object):
         self.logserver = logserver.Logserver(env)
 
     @classmethod
-    def parameters(cls):
-        return (
-            ['executor']
-            + node.Node.parameters()
-            + logserver.Logserver.parameters()
+    def add_arguments_to(cls, parser):
+        parser.add_argument(
+            'executor',
+            choices=['print', 'exec']
         )
+        node.Node.add_arguments_to(parser)
+        logserver.Logserver.add_arguments_to(parser)
 
     def __call__(self):
         checks = [

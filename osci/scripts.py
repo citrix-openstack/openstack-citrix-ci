@@ -7,9 +7,7 @@ from osci import config
 
 def get_parser_for(command):
     parser = argparse.ArgumentParser()
-    for parameter in command.parameters():
-        parser.add_argument(parameter)
-
+    command.add_arguments_to(parser)
     return parser
 
 

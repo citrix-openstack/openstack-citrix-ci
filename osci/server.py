@@ -13,8 +13,9 @@ class Server(object):
         self.keyfile = env.get(self.KEYFILE, None)
 
     @classmethod
-    def parameters(cls):
-        return [cls.USERNAME, cls.HOST]
+    def add_arguments_to(cls, parser):
+        parser.add_argument(cls.USERNAME)
+        parser.add_argument(cls.HOST)
 
     def command_for_this_node(self):
         return (

@@ -8,8 +8,10 @@ from osci import scripts
 
 class Command(object):
     @classmethod
-    def parameters(cls):
-        return ['p1', 'p2']
+    def add_arguments_to(cls, parser):
+        parser.add_argument('p1')
+        parser.add_argument('p2')
+
 
 class TestParameterToArg(unittest.TestCase):
     def test_parser_created(self):
