@@ -19,7 +19,7 @@ log = logging.getLogger(__name__)
 def _add_executor_args(parser):
     parser.add_argument(
         'executor',
-        choices=['print', 'exec']
+        choices=executor.EXECUTOR_NAMES.keys()
     )
 
 
