@@ -30,7 +30,7 @@ class Configuration(object):
         'NODEPOOL_CONFIG': '/etc/nodepool/nodepool.yaml',
         'NODEPOOL_IMAGE': 'XSDSVM',
         'NODE_USERNAME': 'jenkins',
-        'NODE_KEY': '~/.ssh/jenkins',
+        'NODE_KEY': '.ssh/jenkins',
         'POLL': '30',
         'PROJECT_CONFIG': 'openstack/nova,openstack/tempest,openstack-dev/devstack,stackforge/xenapi-os-testing,openstack-infra/devstack-gate',
         'RUN_TESTS': 'True',

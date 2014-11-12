@@ -262,7 +262,7 @@ class TestRetrieveResults(unittest.TestCase):
             'ssh -q -o BatchMode=yes'
             ' -o UserKnownHostsFile=/dev/null'
             ' -o StrictHostKeyChecking=no'
-            ' -i ~/.ssh/jenkins'
+            ' -i .ssh/jenkins'
             ' jenkins@ip cat result.txt',
             silent=True, return_streams=True)
 
@@ -277,7 +277,7 @@ class TestRetrieveResults(unittest.TestCase):
         fake_utils.copy_dom0_logs.assert_called_once_with(
             'ip',
             'jenkins',
-            '~/.ssh/jenkins',
+            '.ssh/jenkins',
             'ignored'
         )
 
