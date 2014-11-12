@@ -118,13 +118,15 @@ class CreateDBSchema(object):
     def __call__(self):
         self.database.create_schema()
 
+
 class GerritEventError(Exception):
     pass
+
 
 class WatchGerrit(object):
     DEFAULT_SLEEP_TIMEOUT = 5
     DEFAULT_EVENT_TIME = 600
-    
+
     def __init__(self, env=None):
         logging.getLogger('sqlalchemy').setLevel(logging.DEBUG)
         env = env or dict()
@@ -155,11 +157,15 @@ class WatchGerrit(object):
         self.recent_event_time = datetime.timedelta(seconds=recent_seconds)
 
     @classmethod
-    def parameters(cls):
-        return [
-            'gerrit_client', 'gerrit_host', 'event_target',
-            'gerrit_port', 'gerrit_username', 'dburl', 'comment_re',
-            'projects']
+    def add_arguments_to(cls, parser):
+        parser.add_argument('gerrit_client')
+        parser.add_argument('gerrit_host')
+        parser.add_argument('event_target')
+        parser.add_argument('gerrit_port')
+        parser.add_argument('gerrit_username')
+        parser.add_argument('dburl')
+        parser.add_argument('comment_re')
+        parser.add_argument('projects')
 
     def get_event(self):
         event = self.gerrit_client.get_event()
