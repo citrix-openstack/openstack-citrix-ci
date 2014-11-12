@@ -4,7 +4,6 @@ import logging
 
 from osci import node
 from osci import executor
-from osci import logserver
 from osci import instructions
 from osci import environment
 from osci import gerrit
@@ -17,21 +16,23 @@ from osci import time_services
 log = logging.getLogger(__name__)
 
 
+def _add_executor_args(parser):
+    parser.add_argument(
+        'executor',
+        choices=['print', 'exec']
+    )
+
+
 class CheckConnection(object):
     def __init__(self, env=None):
         env = env or dict()
         self.executor = executor.create_executor(env.get('executor'))
         self.node = node.Node(env)
-        self.logserver = logserver.Logserver(env)
 
     @classmethod
     def add_arguments_to(cls, parser):
-        parser.add_argument(
-            'executor',
-            choices=['print', 'exec']
-        )
+        _add_executor_args(parser)
         node.Node.add_arguments_to(parser)
-        logserver.Logserver.add_arguments_to(parser)
 
     def __call__(self):
         checks = [
@@ -42,10 +43,6 @@ class CheckConnection(object):
             (
                 'Connection from Node to dom0',
                 self.node.run_on_dom0(['true'])
-            ),
-            (
-                'Connection to Logserver',
-                self.logserver.run(['true'])
             ),
         ]
 
@@ -69,8 +66,11 @@ class RunTests(object):
         self.project_name = env.get('project_name')
 
     @classmethod
-    def parameters(cls):
-        return ['executor'] + node.Node.parameters() + ['change_ref', 'project_name']
+    def add_arguments_to(cls, parser):
+        _add_executor_args(parser)
+        node.Node.add_arguments_to(parser)
+        parser.add_argument('change_ref')
+        parser.add_argument('project_name')
 
     def __call__(self):
         self.executor.run(

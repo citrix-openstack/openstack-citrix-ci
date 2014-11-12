@@ -28,11 +28,25 @@ SSH_TO_DOMZERO_FROM_NODE=(
 
 
 class TestRunTests(unittest.TestCase):
-    def test_parameters(self):
+    def test_arguments(self):
+        params = []
+        def collect_arg(arg, *ignored, **kwignored):
+            params.append(arg)
+
         cmd = commands.RunTests
+        mock_parser = mock.Mock()
+        mock_parser.add_argument.side_effect = collect_arg
+
+        cmd.add_arguments_to(mock_parser)
         self.assertEquals(
-            ['executor', 'node_username', 'node_host', 'change_ref', 'project_name'],
-            cmd.parameters()
+            [
+                'executor',
+                'node_username',
+                'node_host',
+                'change_ref',
+                'project_name'
+            ],
+            params
         )
 
     def test_changeref_parsing(self):
