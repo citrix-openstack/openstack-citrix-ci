@@ -11,6 +11,7 @@ from osci import event_target
 from osci import db
 from osci import job_queue
 from osci import time_services
+from osci import config as osci_config
 
 
 log = logging.getLogger(__name__)
@@ -27,14 +28,21 @@ class CheckConnection(object):
     def __init__(self, env=None):
         env = env or dict()
         self.executor = executor.create_executor(env.get('executor'))
-        self.node = node.Node(env)
+        config = osci_config.Configuration()
+        self.node = node.Node(dict(
+                node_username=config.NODE_USERNAME,
+                node_host=env['node_host'],
+                node_keyfile=config.NODE_KEY
+            )
+        )
 
     @classmethod
     def add_arguments_to(cls, parser):
         _add_executor_args(parser)
-        node.Node.add_arguments_to(parser)
+        parser.add_argument('node_host', help='Node to connect to')
 
     def __call__(self):
+
         checks = [
             (
                 'Connection to Node',
