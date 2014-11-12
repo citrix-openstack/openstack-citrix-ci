@@ -5,7 +5,7 @@ import os.path
 import json
 
 class Configuration(object):
-    CONFIG_FILE = '~/osci.config'
+    CONFIG_FILE = '/etc/osci/osci.config'
 
     # Make the configuration a singleton
     _instance = None
@@ -52,7 +52,7 @@ class Configuration(object):
         }
 
     def _conf_file_contents(self):
-        filename = os.path.expanduser(Configuration.CONFIG_FILE)
+        filename = Configuration.CONFIG_FILE
         filename = os.path.expandvars(filename)
         if os.path.exists(filename):
             with open(filename, 'r') as config:
@@ -84,7 +84,7 @@ class Configuration(object):
         return int(val)
 
     def check_reload(self):
-        filename = os.path.expanduser(Configuration.CONFIG_FILE)
+        filename = Configuration.CONFIG_FILE
         filename = os.path.expandvars(filename)
         if os.path.exists(filename):
             if os.stat(filename).st_mtime > self._last_read:
