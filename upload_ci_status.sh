@@ -1,6 +1,10 @@
 #!/bin/bash
 set -eux
 
+if [ -e /etc/osci/skip_status_update ]; then
+    exit 0
+fi
+
 CI_DIR=/tmp/ci_status
 
 [ -e $CI_DIR ] && rm -rf $CI_DIR
