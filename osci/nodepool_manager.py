@@ -54,4 +54,4 @@ class NodePool():
         with self.getSession() as session:
             node = session.getNode(node_id)
             if node:
-                self.pool.deleteNode(session, node)
+                self.pool._deleteNode(session, node)
