@@ -26,7 +26,7 @@ class NodePool():
     def getNode(self):
         with self.getSession() as session:
             for node in session.getNodes():
-                if node.image_name != self.image:
+                if node.label_name != self.image:
                     continue
                 if node.state != self.nodedb.READY:
                     continue
