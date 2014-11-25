@@ -46,7 +46,7 @@ class FakeNodePool(nodepool_manager.NodePool):
         node.ip = ip
         node.state = state
         node.state_time = time_services.time()
-        node.image_name = self.image
+        node.label_name = self.image
         self.nodes.append(node)
         
 
