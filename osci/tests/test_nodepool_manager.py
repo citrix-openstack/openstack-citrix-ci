@@ -18,7 +18,7 @@ class FakeNodePool(nodepool_manager.NodePool):
         self.nodedb.READY = 'ready'
         self.nodedb.HOLD = 'hold'
         self.pool = mock.Mock()
-        self.pool.deleteNode.side_effect = self.mock_delete
+        self.pool._deleteNode.side_effect = self.mock_delete
         self.image = 'mock_image'
         self.mock_session = mock.Mock()
         self.mock_session.getNodes.side_effect = self.mock_get_nodes
@@ -72,7 +72,7 @@ class TestNodepoolManager(unittest.TestCase):
         self.npm.addNode(1, 'ip_1', self.npm.nodedb.READY)
         node = self.npm.nodes[0]
         self.npm.deleteNode(1)
-        self.npm.pool.deleteNode.assert_called_with(self.npm.mock_session, node)
+        self.npm.pool._deleteNode.assert_called_with(self.npm.mock_session, node)
         self.assertEquals(0, len(self.npm.nodes))
 
     @mock.patch('osci.time_services.time')
