@@ -26,6 +26,8 @@ def get_parser():
     parser.add_option('-c', '--change-ref', dest='change_ref', action="store",
                       type="string", help="One time job on a change-ref "+\
                       "e.g. refs/changes/55/7155/1")
+    parser.add_option('-f', '--flush', dest='flush', action="store_true",
+                      default=False, help="Remove all jobs from the database")
     parser.add_option('-r', '--run', dest='run_job', action="store",
                       type="int", help="Run a job ID")
 
@@ -55,6 +57,10 @@ def main():
         uploader=swift_upload.SwiftUploader(),
         executor=utils.execute_command)
     
+    if options.flush_jobs:
+        queue.flush()
+        return
+
     if options.change_ref:
         change_num, patchset = options.change_ref.split('/')[-2:]
         patch_details = utils.get_patchset_details(change_num, patchset)

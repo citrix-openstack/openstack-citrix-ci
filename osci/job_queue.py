@@ -216,3 +216,5 @@ class JobQueue(object):
                     vote(job.commit_id, vote_num, message)
                     job.update(self.db, state=constants.FINISHED)
 
+    def flush(self):
+        Job.deleteWhere(self.db)

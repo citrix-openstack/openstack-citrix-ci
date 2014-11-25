@@ -107,6 +107,23 @@ class TestDBMethods(unittest.TestCase):
         recent_jobs = Job.getRecent(db, 200000)
         self.assertEqual(len(recent_jobs), 2)
 
+    def test_delete(self):
+        db = DB('sqlite://')
+        db.create_schema()
+
+        job = Job(change_num="change_num", project_name="project")
+        with db.get_session() as session:
+            session.add(job)
+            job.db = db
+
+        jobs = Job.getAllWhere(db)
+        self.assertEqual(len(jobs), 1)
+
+        Job.deleteWhere(db)
+
+        jobs = Job.getAllWhere(db)
+        self.assertEqual(len(jobs), 0)
+
 class TestRun(unittest.TestCase):
     @mock.patch.object(Job, 'update')
     @mock.patch.object(utils, 'getSSHObject')

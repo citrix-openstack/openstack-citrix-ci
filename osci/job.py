@@ -64,6 +64,15 @@ class Job(db.Base):
                     .order_by(cls.updated).all()
             )
 
+
+    @classmethod
+    def deleteWhere(cls, db, **kwargs):
+        with db.get_session() as session:
+            deleteJobs = cls.getAllWhere(db, **kwargs)
+            for job in deleteJobs:
+                session.delete(job)
+
+
     @classmethod
     def getRecent(cls, db, recent=24):
         recent_date = time_services.now() - datetime.timedelta(hours=recent)
