@@ -57,7 +57,7 @@ def main():
         uploader=swift_upload.SwiftUploader(),
         executor=utils.execute_command)
     
-    if options.flush_jobs:
+    if options.flush:
         queue.flush()
         return
 
