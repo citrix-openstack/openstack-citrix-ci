@@ -1,8 +1,8 @@
-def check_out_testrunner():
+def check_out_testrunner(testrunner_repo='https://git.openstack.org/stackforge/xenapi-os-testing'):
     return (
         '/usr/bin/git clone'
-        ' https://git.openstack.org/stackforge/xenapi-os-testing'
-        ' /home/jenkins/xenapi-os-testing'
+        ' %s'
+        ' /home/jenkins/xenapi-os-testing' % testrunner_repo
     ).split()
 
 def update_testrunner(changeref):

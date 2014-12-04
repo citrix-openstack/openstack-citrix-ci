@@ -11,6 +11,13 @@ class TestCheckOutTestRunner(unittest.TestCase):
             " /home/jenkins/xenapi-os-testing".split(),
             instructions.check_out_testrunner())
 
+    def test_command_with_explicit_repository(self):
+        self.assertEquals(
+            "/usr/bin/git clone"
+            " SOMETHING"
+            " /home/jenkins/xenapi-os-testing".split(),
+            instructions.check_out_testrunner('SOMETHING'))
+
     def test_execute_test_runner(self):
         self.assertEquals(
             '/home/jenkins/xenapi-os-testing/run_tests.sh'.split(),
