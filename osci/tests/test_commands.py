@@ -73,7 +73,8 @@ class TestRunTests(unittest.TestCase):
         self.assertIsNotNone(cmd.node)
 
     def test_execution(self):
-        cmd = commands.RunTests(dict(project_name='PROJECT', change_ref='CHANGE'))
+        cmd = commands.RunTests(dict(
+            project_name='PROJECT', change_ref='CHANGE'))
         cmd()
 
         self.maxDiff = 4096
