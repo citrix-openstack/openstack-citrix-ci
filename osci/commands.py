@@ -72,6 +72,7 @@ class RunTests(object):
         self.node = node.Node(env)
         self.change_ref = env.get('change_ref')
         self.project_name = env.get('project_name')
+        self.test_runner_url = env.get('test_runner_url')
 
     @classmethod
     def add_arguments_to(cls, parser):
@@ -79,6 +80,8 @@ class RunTests(object):
         node.Node.add_arguments_to(parser)
         parser.add_argument('change_ref')
         parser.add_argument('project_name')
+        parser.add_argument('test_runner_url', help="Specify the url for "
+                "xenapi-os-testing repository")
 
     def __call__(self):
         self.executor.run(

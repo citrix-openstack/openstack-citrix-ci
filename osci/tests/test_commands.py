@@ -48,10 +48,15 @@ class TestRunTests(unittest.TestCase):
                 'node_username',
                 'node_host',
                 'change_ref',
-                'project_name'
+                'project_name',
+                'test_runner_url',
             ],
             commands.RunTests
         )
+
+    def test_test_runner_parsing(self):
+        cmd = commands.RunTests(dict(test_runner_url='testrunner'))
+        self.assertEquals('testrunner', cmd.test_runner_url)
 
     def test_changeref_parsing(self):
         cmd = commands.RunTests(dict(change_ref='ref'))
