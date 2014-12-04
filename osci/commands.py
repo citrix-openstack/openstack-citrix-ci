@@ -82,11 +82,6 @@ class RunTests(object):
 
     def __call__(self):
         self.executor.run(
-            self.node.scp(
-                'tempest_exclusion_list', '/tmp/tempest_exclusion_list')
-        )
-
-        self.executor.run(
             self.node.run(instructions.check_out_testrunner())
         )
 
