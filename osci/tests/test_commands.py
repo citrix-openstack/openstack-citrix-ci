@@ -91,6 +91,23 @@ class TestRunTests(unittest.TestCase):
             cmd.executor.executed_commands
         )
 
+    def test_execution_with_explicit_test_runner(self):
+        cmd = commands.RunTests(dict(
+            project_name='PROJECT', change_ref='CHANGE', test_runner_url='AA'))
+        cmd()
+
+        self.maxDiff = 4096
+
+        self.assertEquals(
+            [
+                SSH_TO_NODE + instructions.check_out_testrunner('AA'),
+                SSH_TO_NODE
+                + environment.get_environment('PROJECT', 'CHANGE')
+                + instructions.execute_test_runner()
+            ],
+            cmd.executor.executed_commands
+        )
+
     def test_execution_update_testrunner(self):
         cmd = commands.RunTests(dict(project_name='stackforge/xenapi-os-testing', change_ref='CHANGE'))
         cmd()

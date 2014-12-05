@@ -72,7 +72,10 @@ class RunTests(object):
         self.node = node.Node(env)
         self.change_ref = env.get('change_ref')
         self.project_name = env.get('project_name')
-        self.test_runner_url = env.get('test_runner_url')
+        self.test_runner_url = env.get(
+            'test_runner_url',
+            'https://git.openstack.org/stackforge/xenapi-os-testing'
+        )
 
     @classmethod
     def add_arguments_to(cls, parser):
@@ -85,7 +88,9 @@ class RunTests(object):
 
     def __call__(self):
         self.executor.run(
-            self.node.run(instructions.check_out_testrunner())
+            self.node.run(
+                instructions.check_out_testrunner(self.test_runner_url)
+            )
         )
 
         if self.project_name == 'stackforge/xenapi-os-testing':
