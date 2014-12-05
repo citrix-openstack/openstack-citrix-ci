@@ -17,7 +17,7 @@ SSH_TO_LOGSERVER=(
     'ssh {SSH_OPTIONS} LOGSERVER_USERNAME@LOGSERVER_HOST'.format(
         SSH_OPTIONS=COMMON_SSH_OPTS).split())
 SSH_TO_NODE=(
-    'ssh {SSH_OPTIONS} NODE_USERNAME@NODE_HOST'.format(
+    'ssh {SSH_OPTIONS} -i .ssh/jenkins NODE_USERNAME@NODE_HOST'.format(
         SSH_OPTIONS=COMMON_SSH_OPTS).split())
 SSH_TO_DOMZERO_FROM_NODE=(
     'sudo -u domzero ssh {SSH_OPTIONS} root@192.168.33.2'.format(

@@ -70,6 +70,7 @@ class RunTests(object):
         env = env or dict()
         self.executor = executor.create_executor(env.get('executor'))
         self.node = node.Node(env)
+        self.node.keyfile = osci_config.Configuration().NODE_KEY
         self.change_ref = env.get('change_ref')
         self.project_name = env.get('project_name')
         self.test_runner_url = env.get(
