@@ -33,6 +33,7 @@ class TestUtilities(unittest.TestCase):
         self.assertEqual('gzip', swift_upload.get_content_encoding('filename.txt.gz'))
         self.assertEqual('gzip', swift_upload.get_content_encoding('filename.gz'))
         self.assertEqual('gzip', swift_upload.get_content_encoding('filename.log.gz'))
+        self.assertEqual('gzip', swift_upload.get_content_encoding('var/log/messages.1.gz'))
 
     def test_content_type_gz(self):
         self.assertEqual('text/plain', swift_upload.get_content_type('filename.txt.gz'))
@@ -43,6 +44,8 @@ class TestUtilities(unittest.TestCase):
         self.assertEqual(None, swift_upload.get_content_type('filename.dat.gz'))
         self.assertEqual('text/plain', swift_upload.get_content_type('messages.1.gz'))
         self.assertEqual('text/plain', swift_upload.get_content_type('SMlog.1.gz'))
+        self.assertEqual('text/plain', swift_upload.get_content_type('var/log/messages.1.gz'))
+        self.assertEqual('text/plain', swift_upload.get_content_type('var/log/SMlog.1.gz'))
 
     def test_content_type(self):
         self.assertEqual('text/plain', swift_upload.get_content_type('filename.txt'))
@@ -53,6 +56,8 @@ class TestUtilities(unittest.TestCase):
         self.assertEqual(None, swift_upload.get_content_type('filename.dat'))
         self.assertEqual('text/plain', swift_upload.get_content_type('messages'))
         self.assertEqual('text/plain', swift_upload.get_content_type('SMlog'))
+        self.assertEqual('text/plain', swift_upload.get_content_type('var/log/messages'))
+        self.assertEqual('text/plain', swift_upload.get_content_type('var/log/SMlog'))
 
 class TestSwiftUploader(unittest.TestCase):
     def setUp(self):
