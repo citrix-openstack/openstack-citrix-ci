@@ -34,7 +34,7 @@ def assert_parameters(expected_parameters, cmd):
     mock_parser.add_argument.side_effect = collect_arg
 
     cmd.add_arguments_to(mock_parser)
-    tools.assert_equals(
+    tools.assert_equals(     # pylint: disable=no-member
         expected_parameters,
         params
     )
@@ -210,7 +210,9 @@ class TestWatchGerrit(unittest.TestCase):
     @mock.patch('osci.commands.time_services.now')
     def test_event_seen_recently(self, mock_now):
         cmd = commands.WatchGerrit(dict(event_target='fake'))
-        cmd.last_event = datetime.datetime(2000,01,01,00,00,00,00)
+
+        cmd.last_event = datetime.datetime(2000,1,1,0,0,0,0)
+
         cmd.recent_event_time = datetime.timedelta(minutes=10)
         mock_now.return_value = cmd.last_event + datetime.timedelta(seconds=5)
         self.assertTrue(cmd.event_seen_recently())

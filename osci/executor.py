@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import subprocess
 import logging
 
@@ -12,10 +14,10 @@ def create_executor(name):
 
 class PrintExecutor(object):
     def run(self, args):
-        print ' '.join(args)
+        print(' '.join(args))
 
     def pipe_run(self, args1, args2):
-        print ' '.join(args1 + ['|'] + args2)
+        print(' '.join(args1 + ['|'] + args2))
 
 
 class FakeExecutor(object):

@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import datetime
 import time
 import logging
@@ -55,11 +57,11 @@ class CheckConnection(object):
         ]
 
         for message, args in checks:
-            print message
+            print(message)
             if 0 == self.executor.run(args):
-                print "OK"
+                print("OK")
             else:
-                print "FAIL, aborting"
+                print("FAIL, aborting")
                 return 1
 
         return 0

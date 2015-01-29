@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import argparse
 import logging
 import re
@@ -210,4 +212,4 @@ def main():
         uploader=None,
         executor=None)
 
-    print options.func(options, queue)
+    print(options.func(options, queue))

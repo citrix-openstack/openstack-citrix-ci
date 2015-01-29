@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import mock
 import unittest
 from pygerrit import events
@@ -227,7 +229,7 @@ class TestGetFilter(unittest.TestCase):
         f = gerrit.get_filter(
             dict(projects='p1,p2,p3', comment_re='comment_re', ignore_usernames='ignore_username1,ignore_username2'))
 
-        print f.filters[0].filters[1].fltr.authors
+        print(f.filters[0].filters[1].fltr.authors)
 
         self.assertEquals('ignore_username1', f.filters[0].filters[1].fltr.authors[0])
         self.assertEquals('ignore_username2', f.filters[0].filters[1].fltr.authors[1])
