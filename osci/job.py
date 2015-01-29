@@ -213,7 +213,11 @@ class Job(db.Base):
             utils.copy_logs(
                 [
                     '/home/jenkins/workspace/testing/logs/*',
-                    '/home/jenkins/run_test*'
+                    '/home/jenkins/run_test*',
+                    '/etc/nova/*',
+                    '/etc/swift/*',
+                    '/etc/cinder/*',
+                    '/etc/keystone/*',
                 ],
                 dest_path,
                 self.node_ip,
