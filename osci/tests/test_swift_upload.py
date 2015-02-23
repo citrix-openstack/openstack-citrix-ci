@@ -3,6 +3,7 @@ import mock
 import time
 import stat
 import unittest
+import os
 
 from osci import constants
 from osci import utils
@@ -84,8 +85,8 @@ class TestSwiftUploader(unittest.TestCase):
         mock_container = mock.Mock()
         mock_pyrax.cloudfiles.create_container.return_value = mock_container
         mock_container.cdn_uri = 'uri'
-        result = swift_upload.SwiftUploader().upload('localdir', 'prefix')
-        self.assertEqual(result, 'uri/prefix/results.html')
+        result = swift_upload.SwiftUploader().upload(['localdir'], 'prefix')
+        self.assertEqual(result, 'uri/prefix/index.html')
         # Nothing should have been uploaded
         self.assertEqual(0, mock_one_file.call_count)
 
@@ -95,16 +96,16 @@ class TestSwiftUploader(unittest.TestCase):
     @mock.patch('osci.swift_upload.SwiftUploader.upload_one_file')
     def test_upload_ordered(self, mock_one_file, mock_os_stat, mock_os_listdir, mock_pyrax):
         mock_os_listdir.return_value=['b', 'd', 'c', 'a']
-        mock_os_stat.return_value = self.mock_stat_file
+        mock_os_stat.side_effect = lambda x: self.mock_stat_dir if 'dir' in os.path.split(x)[-1] else self.mock_stat_file
         mock_container = mock.Mock()
         mock_pyrax.cloudfiles.create_container.return_value = mock_container
         mock_container.cdn_uri = 'uri'
-        result = swift_upload.SwiftUploader().upload('localdir', 'prefix')
-        self.assertEqual(result, 'uri/prefix/results.html')
-        expected_calls = [mock.call(mock_container, 'localdir/a', 'prefix/a')]
-        expected_calls.append(mock.call(mock_container, 'localdir/b', 'prefix/b'))
-        expected_calls.append(mock.call(mock_container, 'localdir/c', 'prefix/c'))
-        expected_calls.append(mock.call(mock_container, 'localdir/d', 'prefix/d'))
+        result = swift_upload.SwiftUploader().upload(['localdir'], 'prefix')
+        self.assertEqual(result, 'uri/prefix/index.html')
+        expected_calls = [mock.call(mock_container, 'localdir/a', 'prefix/localdir/a')]
+        expected_calls.append(mock.call(mock_container, 'localdir/b', 'prefix/localdir/b'))
+        expected_calls.append(mock.call(mock_container, 'localdir/c', 'prefix/localdir/c'))
+        expected_calls.append(mock.call(mock_container, 'localdir/d', 'prefix/localdir/d'))
         mock_one_file.assert_has_calls(expected_calls)
 
     @mock.patch('osci.swift_upload.pyrax')
@@ -113,13 +114,13 @@ class TestSwiftUploader(unittest.TestCase):
     @mock.patch('osci.swift_upload.SwiftUploader.upload_one_file')
     def test_upload_subdir(self, mock_one_file, mock_os_stat, mock_os_listdir, mock_pyrax):
         mock_os_listdir.side_effect=[['subdir'], ['file']]
-        mock_os_stat.side_effect = lambda x: self.mock_stat_dir if x[-3:] == 'dir' else self.mock_stat_file
+        mock_os_stat.side_effect = lambda x: self.mock_stat_dir if 'dir' in os.path.split(x)[-1] else self.mock_stat_file
         mock_container = mock.Mock()
         mock_pyrax.cloudfiles.create_container.return_value = mock_container
         mock_container.cdn_uri = 'uri'
-        result = swift_upload.SwiftUploader().upload('localdir', 'prefix')
-        self.assertEqual(result, 'uri/prefix/results.html')
-        expected_calls = [mock.call(mock_container, 'localdir/subdir/file', 'prefix/subdir/file')]
+        result = swift_upload.SwiftUploader().upload(['localdir'], 'prefix')
+        self.assertEqual(result, 'uri/prefix/index.html')
+        expected_calls = [mock.call(mock_container, 'localdir/subdir/file', 'prefix/localdir/subdir/file')]
         mock_one_file.assert_has_calls(expected_calls)
 
     @mock.patch('osci.swift_upload.pyrax')
@@ -127,17 +128,16 @@ class TestSwiftUploader(unittest.TestCase):
     @mock.patch('osci.swift_upload.os.stat')
     @mock.patch('osci.swift_upload.SwiftUploader.upload_one_file')
     def test_upload_run_tests_first(self, mock_one_file, mock_os_stat, mock_os_listdir, mock_pyrax):
-        mock_os_listdir.return_value=['b', 'c', 'run_tests.log', 'a']
-        mock_os_stat.return_value = self.mock_stat_file
+        mock_os_stat.side_effect = lambda x: self.mock_stat_dir if 'dir' in os.path.split(x)[-1] else self.mock_stat_file
         mock_container = mock.Mock()
         mock_pyrax.cloudfiles.create_container.return_value = mock_container
         mock_container.cdn_uri = 'uri'
-        result = swift_upload.SwiftUploader().upload('localdir', 'prefix')
-        self.assertEqual(result, 'uri/prefix/results.html')
-        expected_calls = [mock.call(mock_container, 'localdir/run_tests.log', 'prefix/run_tests.log')]
-        expected_calls.append(mock.call(mock_container, 'localdir/a', 'prefix/a'))
-        expected_calls.append(mock.call(mock_container, 'localdir/b', 'prefix/b'))
-        expected_calls.append(mock.call(mock_container, 'localdir/c', 'prefix/c'))
+        result = swift_upload.SwiftUploader().upload(['b', 'c', 'run_tests.log', 'a'], 'prefix')
+        self.assertEqual(result, 'uri/prefix/index.html')
+        expected_calls = [mock.call(mock_container, 'run_tests.log', 'prefix/run_tests.log')]
+        expected_calls.append(mock.call(mock_container, 'a', 'prefix/a'))
+        expected_calls.append(mock.call(mock_container, 'b', 'prefix/b'))
+        expected_calls.append(mock.call(mock_container, 'c', 'prefix/c'))
         mock_one_file.assert_has_calls(expected_calls)
 
     @mock.patch('osci.swift_upload.pyrax')
@@ -146,17 +146,17 @@ class TestSwiftUploader(unittest.TestCase):
     @mock.patch('osci.swift_upload.SwiftUploader.upload_one_file')
     def test_upload_html(self, mock_one_file, mock_os_stat, mock_os_listdir, mock_pyrax):
         mock_os_listdir.return_value=['b', 'c', 'run_tests.log', 'a.txt']
-        mock_os_stat.return_value = self.mock_stat_file
+        mock_os_stat.side_effect = lambda x: self.mock_stat_dir if 'dir' in os.path.split(x)[-1] else self.mock_stat_file
         mock_container = mock.Mock()
         mock_pyrax.cloudfiles.create_container.return_value = mock_container
         mock_container.cdn_uri = 'uri'
-        result = swift_upload.SwiftUploader().upload('localdir', 'prefix')
+        result = swift_upload.SwiftUploader().upload(['localdir'], 'prefix')
 
         # Rather than parse the whole HTML - just verify that we've got the filename and size
-        store_call = mock_container.store_object.call_args
-        store_args, _ = store_call
-        self.assertEqual('prefix/results.html', store_args[0])
-        self.assertIn('Test results for prefix', store_args[1])
+        store_calls = mock_container.store_object.call_args_list
+        store_args, _ = store_calls[0]
+        self.assertEqual('prefix/localdir/index.html', store_args[0])
+        self.assertIn('Index of prefix', store_args[1])
         self.assertIn('<a href="run_tests.log">run_tests.log</a>', store_args[1])
         self.assertIn('1024', store_args[1])
 
@@ -212,3 +212,22 @@ class TestSwiftUploader(unittest.TestCase):
         expected = mock.call('source.txt', 'target.txt', etag='calc_checksum',
                              content_encoding=None, content_type='text/plain') 
         mock_container.upload_file.assert_has_calls([expected])
+
+    @mock.patch('osci.swift_upload.pyrax')
+    @mock.patch('osci.swift_upload.os.listdir')
+    @mock.patch('osci.swift_upload.os.stat')
+    @mock.patch('osci.swift_upload.SwiftUploader.upload_one_file')
+    def test_upload_subdir2(self, mock_one_file, mock_os_stat, mock_os_listdir, mock_pyrax):
+        fake_dirs = {'dir1': ['filea', 'dir2'],
+                     'dir1/dir2': ['fileb']}
+        mock_os_listdir.side_effect = lambda x: fake_dirs[x.strip('/')]
+        mock_os_stat.side_effect = lambda x: self.mock_stat_dir if 'dir' in os.path.split(x)[-1] else self.mock_stat_file
+        mock_container = mock.Mock()
+        mock_pyrax.cloudfiles.create_container.return_value = mock_container
+        mock_container.cdn_uri = 'uri'
+        result = swift_upload.SwiftUploader().upload(['dir1', 'filec'], 'prefix')
+        self.assertEqual(result, 'uri/prefix/index.html')
+        expected_calls = [mock.call(mock_container, 'dir1/dir2/fileb', 'prefix/dir1/dir2/fileb'),
+                          mock.call(mock_container, 'dir1/filea', 'prefix/dir1/filea'),
+                          mock.call(mock_container, 'filec', 'prefix/filec')]
+        mock_one_file.assert_has_calls(expected_calls)

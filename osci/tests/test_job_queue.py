@@ -333,7 +333,7 @@ class TestUploadResults(unittest.TestCase, QueueHelpers):
         self.assertEquals(
             constants.COLLECTED, t.state, msg="Node must be collected")
         q.uploader.upload.assert_called_once_with(
-            "RANDOMPATH-98", "1/2/3/33"
+            ["RANDOMPATH-98/run_tests.log", "RANDOMPATH-98"], "1/2/3/33"
         )
 
 

@@ -41,15 +41,18 @@ def get_content_type(filepath):
 _START_STANSA = """
 <html>
  <head>
-  <title>Test results for %(prefix)s</title>
+  <title>Index of %(prefix)s</title>
  </head>
  <body>
-  <h1>Test results for %(prefix)s</ht>
+  <h1>Index of %(prefix)s</ht>
   <table>
   <tr><th>Name</th><th>Size</th></tr>
 """
 _FILE_STANSA = """
   <tr><td><a href="%(filename)s">%(filename)s</a></td><td>%(size)s</td></tr>
+"""
+_DIR_STANSA = """
+  <tr><td><a href="%(filename)s/index.html">%(filename)s</a></td><td></td></tr>
 """
 _END_STANSA = """  </table>
  </body>
@@ -60,6 +63,9 @@ def _html_start_stansa(prefix):
 
 def _html_file_stansa(filename, size):
     return _FILE_STANSA % locals()
+
+def _html_dir_stansa(filename):
+    return _DIR_STANSA % locals()
 
 def _html_end_stansa():
     return _END_STANSA % locals()
@@ -86,30 +92,35 @@ class SwiftUploader(object):
             else:
                 raise UploadException('Failed to upload %s'%source)
 
-    def upload_dir(self, local_dir, local_prefix, cf_prefix, container):
-        contents = ""
-        filenames = os.listdir(os.path.join(local_dir, local_prefix))
+    def _order_files(self, filenames):
         filenames.sort()
         if 'run_tests.log' in filenames:
             filenames.remove('run_tests.log')
             filenames.insert(0, 'run_tests.log')
-        for filename in filenames:
-            full_path = os.path.join(local_dir, local_prefix, filename)
 
-            if os.path.isdir(full_path):
-                contents = contents + self.upload_dir(local_dir,
-                                                      os.path.join(local_prefix, filename),
-                                                      cf_prefix,
-                                                      container)
-            else:
-                stats = os.stat(full_path)
-                contents = contents + _html_file_stansa(os.path.join(local_prefix, filename), stats.st_size)
+    def _upload(self, local_dir, filename, cf_prefix, container, parent_dir=None):
+        full_path = os.path.join(local_dir, filename)
+        if os.path.isdir(full_path):
+            index = _html_start_stansa(os.path.join(cf_prefix, filename))
+            if parent_dir:
+                index = index + _html_dir_stansa('../')
+            dir_listing = os.listdir(full_path)
+            self._order_files(dir_listing)
+            for subfile in dir_listing:
+                index = index + self._upload(local_dir,
+                                             os.path.join(filename, subfile),
+                                             cf_prefix, container, filename)
+            index = index + _html_end_stansa()
+            container.store_object('%s/index.html'%(os.path.join(cf_prefix, filename)), index)
+            self.logger.info('Added index page at %s', os.path.join(cf_prefix, filename))
+            return _html_dir_stansa(filename)
+        else:
+            cf_name = os.path.join(cf_prefix, filename)
+            self.upload_one_file(container, full_path, cf_name)
+            stats = os.stat(full_path)
+            return _html_file_stansa(os.path.split(filename)[-1], stats.st_size)
 
-                cf_name = os.path.join(cf_prefix, local_prefix, filename)
-                self.upload_one_file(container, full_path, cf_name)
-        return contents
-
-    def upload(self, local_dir, cf_prefix, region=None, container_name=None):
+    def upload(self, local_files, cf_prefix, region=None, container_name=None):
         pyrax.set_setting('identity_type', 'rackspace')
         try:
             if not region:
@@ -127,14 +138,17 @@ class SwiftUploader(object):
         container = cf.create_container(container_name)
 
         contents = _html_start_stansa(cf_prefix)
-
-        contents = contents + self.upload_dir(local_dir, '', cf_prefix, container)
+        self._order_files(local_files)
+        for filename in local_files:
+            filename = filename.rstrip('/')
+            contents = contents + self._upload(os.path.dirname(filename), os.path.basename(filename), cf_prefix, container)
 
         contents = contents + _html_end_stansa()
-        container.store_object('%s/results.html'%cf_prefix, contents)
+        container.store_object('%s/index.html'%cf_prefix, contents)
+        self.logger.info('Added index page at %s', os.path.join(cf_prefix))
 
         uri = container.cdn_uri
-        result_url = "%s/%s/results.html"%(uri, cf_prefix)
+        result_url = "%s/%s/index.html"%(uri, cf_prefix)
         self.logger.info('Result URL: %s', result_url)
         return result_url
 
@@ -152,10 +166,10 @@ def main():
                         'requests.packages.urllib3.connectionpool']:
         logging.getLogger(logger_name).setLevel(logging.ERROR)
 
-    local_dir = args[0]
-    cf_prefix = args[1]
+    local_dirs = args[:-1]
+    cf_prefix = args[-1]
 
-    SwiftUploader().upload(local_dir, cf_prefix, options.region, options.container)
+    SwiftUploader().upload(local_dirs, cf_prefix, options.region, options.container)
 
 
 if __name__ == "__main__":

@@ -174,7 +174,7 @@ class JobQueue(object):
             self.log.info('Result: %s (Err: %s)', fail_stdout, stderr)
 
             self.log.info('Copying logs for %s', job)
-            result_url = self.uploader.upload(tmpPath,
+            result_url = self.uploader.upload(['%s/run_tests.log'%tmpPath, tmpPath],
                                               job.change_ref.replace('refs/changes/','')+'/%s'%job.id)
             self.log.info('Uploaded results for %s', job)
             job.update(self.db, result=result,
