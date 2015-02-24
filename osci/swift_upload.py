@@ -2,6 +2,7 @@ import logging
 import optparse
 import os
 import sys
+import time
 
 from osci.config import Configuration
 import pyrax.exceptions
@@ -46,13 +47,13 @@ _START_STANSA = """
  <body>
   <h1>Index of %(prefix)s</ht>
   <table>
-  <tr><th>Name</th><th>Size</th></tr>
+  <tr><th>Name</th><th>Last Modified</th><th>Size</th></tr>
 """
 _FILE_STANSA = """
-  <tr><td><a href="%(filename)s">%(filename)s</a></td><td>%(size)s</td></tr>
+  <tr><td><a href="%(filename)s">%(filename)s</a></td><td>%(modified)s</td><td>%(size)s</td></tr>
 """
 _DIR_STANSA = """
-  <tr><td><a href="%(filename)s/index.html">%(filename)s</a></td><td></td></tr>
+  <tr><td><a href="%(location)s/index.html">%(displayname)s</a></td><td>-</td><td>-</td></tr>
 """
 _END_STANSA = """  </table>
  </body>
@@ -61,10 +62,10 @@ _END_STANSA = """  </table>
 def _html_start_stansa(prefix):
     return _START_STANSA % locals()
 
-def _html_file_stansa(filename, size):
+def _html_file_stansa(filename, modified, size):
     return _FILE_STANSA % locals()
 
-def _html_dir_stansa(filename):
+def _html_dir_stansa(location, displayname):
     return _DIR_STANSA % locals()
 
 def _html_end_stansa():
@@ -72,6 +73,15 @@ def _html_end_stansa():
 
 class UploadException(Exception):
     pass
+
+def sizeof_fmt(num, suffix='B'):
+    if abs(num) < 1024.0:
+        return "%3d %s" % (num, suffix)
+    for unit in ['','Ki','Mi','Gi','Ti','Pi','Ei','Zi']:
+        if abs(num) < 1024.0:
+            return "%3.1f %s%s" % (num, unit, suffix)
+        num /= 1024.0
+    return "%.1f %s%s" % (num, 'Yi', suffix)
 
 class SwiftUploader(object):
     logger = logging.getLogger('citrix.swiftupload')
@@ -98,27 +108,28 @@ class SwiftUploader(object):
             filenames.remove('run_tests.log')
             filenames.insert(0, 'run_tests.log')
 
-    def _upload(self, local_dir, filename, cf_prefix, container, parent_dir=None):
+    def _upload(self, local_dir, filename, cf_prefix, container):
         full_path = os.path.join(local_dir, filename)
         if os.path.isdir(full_path):
             index = _html_start_stansa(os.path.join(cf_prefix, filename))
-            if parent_dir:
-                index = index + _html_dir_stansa('../')
+            index = index + _html_dir_stansa(os.path.join('/', cf_prefix, os.path.dirname(filename)), 'Parent directory')
             dir_listing = os.listdir(full_path)
             self._order_files(dir_listing)
             for subfile in dir_listing:
                 index = index + self._upload(local_dir,
                                              os.path.join(filename, subfile),
-                                             cf_prefix, container, filename)
+                                             cf_prefix, container)
             index = index + _html_end_stansa()
             container.store_object('%s/index.html'%(os.path.join(cf_prefix, filename)), index)
             self.logger.info('Added index page at %s', os.path.join(cf_prefix, filename))
-            return _html_dir_stansa(filename)
+            return _html_dir_stansa(os.path.split(filename)[-1], os.path.split(filename)[-1])
         else:
             cf_name = os.path.join(cf_prefix, filename)
             self.upload_one_file(container, full_path, cf_name)
             stats = os.stat(full_path)
-            return _html_file_stansa(os.path.split(filename)[-1], stats.st_size)
+            return _html_file_stansa(os.path.split(filename)[-1],
+                                     time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(stats.st_mtime)),
+                                     sizeof_fmt(stats.st_size))
 
     def upload(self, local_files, cf_prefix, region=None, container_name=None):
         pyrax.set_setting('identity_type', 'rackspace')

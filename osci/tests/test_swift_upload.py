@@ -21,9 +21,11 @@ class TestUtilities(unittest.TestCase):
     def test_file_stansa(self):
         filename = 'test_filename'
         size = 'test_size'
-        html = swift_upload._html_file_stansa(filename, size)
+        modified = 'test_modified'
+        html = swift_upload._html_file_stansa(filename, modified, size)
         self.assertIn(filename, html)
         self.assertIn(size, html)
+        self.assertIn(modified, html)
 
     def test_content_encoding_none(self):
         self.assertEqual(None, swift_upload.get_content_encoding('filename.txt'))
@@ -65,6 +67,7 @@ class TestSwiftUploader(unittest.TestCase):
         self.mock_stat_file = mock.Mock()
         self.mock_stat_file.st_mode = stat.S_IFREG
         self.mock_stat_file.st_size = 1024
+        self.mock_stat_file.st_mtime = 1.0
         self.mock_stat_dir = mock.Mock()
         self.mock_stat_dir.st_mode = stat.S_IFDIR
 
@@ -158,7 +161,7 @@ class TestSwiftUploader(unittest.TestCase):
         self.assertEqual('prefix/localdir/index.html', store_args[0])
         self.assertIn('Index of prefix', store_args[1])
         self.assertIn('<a href="run_tests.log">run_tests.log</a>', store_args[1])
-        self.assertIn('1024', store_args[1])
+        self.assertIn('1.0 KiB', store_args[1])
 
     @mock.patch('osci.swift_upload.pyrax')
     def test_upload_one_happy_path(self, mock_pyrax):
