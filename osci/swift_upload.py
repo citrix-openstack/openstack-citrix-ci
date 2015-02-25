@@ -74,7 +74,6 @@ def _html_file_stansa(filename, modified, size):
     icon = filename
     params = locals()
     params["icon"] = get_icon(filename)
-    print params
     return _FILE_STANSA % params
 
 def _html_dir_stansa(location, displayname):
