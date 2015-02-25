@@ -39,6 +39,14 @@ def get_content_type(filepath):
         return 'text/html'
     return None
 
+def get_icon(filepath):
+    content_type = get_content_type(filepath)
+    type_to_icon = {
+        "text/plain": "text.png",
+        "text/html": "html.png"
+    }
+    return type_to_icon.get(content_type, "blank.png")
+
 _START_STANSA = """
 <html>
  <head>
@@ -46,14 +54,14 @@ _START_STANSA = """
  </head>
  <body>
   <h1>Index of %(prefix)s</ht>
-  <table>
-  <tr><th>Name</th><th>Last Modified</th><th>Size</th></tr>
+  <table cellspacing="2">
+  <tr><th></th><th>Name</th><th>Last Modified</th><th>Size</th></tr>
 """
 _FILE_STANSA = """
-  <tr><td><a href="%(filename)s">%(filename)s</a></td><td>%(modified)s</td><td>%(size)s</td></tr>
+  <tr><td><img src="/apaxy/icons/%(icon)s"></td><td><a href="%(filename)s">%(filename)s</a></td><td>%(modified)s</td><td>%(size)s</td></tr>
 """
 _DIR_STANSA = """
-  <tr><td><a href="%(location)s/index.html">%(displayname)s</a></td><td>-</td><td>-</td></tr>
+  <tr><td><img src="/apaxy/icons/folder.png"></td><td><a href="%(location)s/index.html">%(displayname)s</a></td><td>-</td><td>-</td></tr>
 """
 _END_STANSA = """  </table>
  </body>
@@ -63,7 +71,11 @@ def _html_start_stansa(prefix):
     return _START_STANSA % locals()
 
 def _html_file_stansa(filename, modified, size):
-    return _FILE_STANSA % locals()
+    icon = filename
+    params = locals()
+    params["icon"] = get_icon(filename)
+    print params
+    return _FILE_STANSA % params
 
 def _html_dir_stansa(location, displayname):
     return _DIR_STANSA % locals()
