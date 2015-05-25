@@ -162,7 +162,7 @@ class SwiftUploader(object):
         contents = _html_start_stansa(cf_prefix)
         self._order_files(local_files)
         for filename in local_files:
-            if not os.path.isfile(filename):
+            if not os.path.exists(filename):
                 self.logger.warn('File %s does not exist', filename)
                 continue
             filename = filename.rstrip('/')
