@@ -4,4 +4,4 @@ pygerrit
 #nodepool
 paramiko
 pyrax
-
+mysql-python
