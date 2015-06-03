@@ -84,6 +84,25 @@ class TestInit(unittest.TestCase, QueueHelpers):
         self.assertEquals(old_j.state, constants.OBSOLETE)
         self.assertEquals(old_j.node_id, 666)
 
+    def test_recheck_test(self):
+        q = self._make_queue()
+        q.addJob('refs/changes/61/65261/7', 'project', 'commit')
+        with q.db.get_session() as session:
+            jobs = session.query(job.Job).all()
+            jobs[0].state = constants.FINISHED
+            jobs[0].node_id = 0
+
+        jobs = job.Job.getAllWhere(q.db)
+        self.assertEquals(len(jobs), 1)
+        q.recheckJob(jobs[0].id)
+
+        jobs = job.Job.getAllWhere(q.db)
+        jobs.sort(key=lambda x: x.id)
+        self.assertEquals(len(jobs), 2)
+        self.assertEquals(jobs[0].state, constants.OBSOLETE)
+        self.assertEquals(jobs[1].state, constants.QUEUED)
+        self.assertEquals(jobs[0].change_ref, jobs[1].change_ref)
+
     def test_get_queued_items_non_empty(self):
         q = self._make_queue()
         q.addJob('refs/changes/61/65261/7', 'project', 'commit')
@@ -333,7 +352,7 @@ class TestUploadResults(unittest.TestCase, QueueHelpers):
         self.assertEquals(
             constants.COLLECTED, t.state, msg="Node must be collected")
         q.uploader.upload.assert_called_once_with(
-            ["RANDOMPATH-98/run_tests.log", "RANDOMPATH-98"], "1/2/3/33"
+            ["RANDOMPATH-98/logs/run_tests.log", "RANDOMPATH-98/logs"], "1/2/3/33"
         )
 
 

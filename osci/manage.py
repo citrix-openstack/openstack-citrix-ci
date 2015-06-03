@@ -24,12 +24,15 @@ def get_parser():
     parser.add_option('-v', '--verbose', dest='verbose', action='store_true',
                       default=False, help='enable verbose (debug) logging')
     parser.add_option('-c', '--change-ref', dest='change_ref', action="store",
-                      type="string", help="One time job on a change-ref "+\
+                      type="string", help="Schedule a one time job on a change-ref "+\
                       "e.g. refs/changes/55/7155/1")
     parser.add_option('-f', '--flush', dest='flush', action="store_true",
                       default=False, help="Remove all jobs from the database")
     parser.add_option('-r', '--run', dest='run_job', action="store",
-                      type="int", help="Run a job ID")
+                      type="int", help="Run a job ID immediately")
+
+    parser.add_option('--recheck', dest='recheck', action="append",
+                      type="int", help="Recheck a job ID")
 
     return parser
 
@@ -70,6 +73,11 @@ def main():
 
     if options.run_job:
         queue.triggerJob(options.run_job)
+        return
+
+    if options.recheck:
+        for jobnum in options.recheck:
+            queue.recheckJob(jobnum)
         return
 
     queue.startCleanupThreads()

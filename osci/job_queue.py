@@ -148,6 +148,11 @@ class JobQueue(object):
         for job in allJobs:
             job.runJob(self.db, self.nodepool)
 
+    def recheckJob(self, job_id):
+        allJobs = Job.getAllWhere(self.db, id=job_id)
+        for job in allJobs:
+            self.addJob(job.change_ref, job.project_name, job.commit_id)
+
     def triggerJobs(self):
         for job in self.get_queued_enabled_jobs():
             job.runJob(self.db, self.nodepool)
@@ -163,7 +168,8 @@ class JobQueue(object):
         tmpPath = self.filesystem.mkdtemp(suffix=job.change_num)
 
         try:
-            result = job.retrieveResults(tmpPath)
+            self.filesystem.mkdir('%s/logs'%tmpPath)
+            result = job.retrieveResults('%s/logs'%tmpPath)
             if not result:
                 logging.info('No result obtained from %s', job)
                 return
@@ -174,7 +180,7 @@ class JobQueue(object):
             self.log.info('Result: %s (Err: %s)', fail_stdout, stderr)
 
             self.log.info('Copying logs for %s', job)
-            result_url = self.uploader.upload(['%s/run_tests.log'%tmpPath, tmpPath],
+            result_url = self.uploader.upload(['%s/logs/run_tests.log'%tmpPath, '%s/logs'%tmpPath],
                                               job.change_ref.replace('refs/changes/','')+'/%s'%job.id)
             self.log.info('Uploaded results for %s', job)
             job.update(self.db, result=result,
