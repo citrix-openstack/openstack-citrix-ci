@@ -174,7 +174,7 @@ class JobQueue(object):
                 logging.info('No result obtained from %s', job)
                 return
 
-            code, fail_stdout, stderr = self.executor('grep$... FAIL$%s/run_tests.log'%tmpPath,
+            code, fail_stdout, stderr = self.executor('grep$... FAIL$%s/logs/run_tests.log'%tmpPath,
                                                       delimiter='$',
                                                       return_streams=True)
             self.log.info('Result: %s (Err: %s)', fail_stdout, stderr)
