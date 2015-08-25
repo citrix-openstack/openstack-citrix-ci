@@ -45,10 +45,10 @@ class Configuration(object):
         'VOTE_PASSED_ONLY': 'False',
         'VOTE_NEGATIVE': 'True',
         'VOTE_SERVICE_ACCOUNT': 'False',
-        'VOTE_MESSAGE': "%(result)s using XenAPI driver with XenServer 6.2: Logs at %(log)s\n\n"+\
-                      "Use \"xenserver: recheck\" to trigger only "+\
-                      "xenserver re-check.  XenServer CI contact: openstack@citrix.com.\n\n"+\
-                      "Debugging suggestions at https://wiki.openstack.org/wiki/Debugging_XenServer_CI_failures",
+        'VOTE_MESSAGE': "Testing completed on Citrix Xenserver. For rechecking only on the Citrix Xenserver CI," +\
+                      "add a review comment with "xenserver: recheck". Contact info: openstack@citrix.com.\n" +\
+                      "For debugging suggestions, see https://wiki.openstack.org/wiki/Debugging_XenServer_CI_failures\n\n" +\
+                      "- check-citrix-xenserver %(log)s : %(result)s ",
         }
 
     def _conf_file_contents(self):
