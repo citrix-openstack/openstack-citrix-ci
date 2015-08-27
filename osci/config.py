@@ -46,9 +46,9 @@ class Configuration(object):
         'VOTE_NEGATIVE': 'True',
         'VOTE_SERVICE_ACCOUNT': 'False',
         'VOTE_MESSAGE': "Testing completed on Citrix Xenserver. For rechecking only on the Citrix Xenserver CI," +\
-                      "add a review comment with "xenserver: recheck". Contact info: openstack@citrix.com.\n" +\
+                      "add a review comment with \"xenserver: recheck\". Contact info: openstack@citrix.com.\n" +\
                       "For debugging suggestions, see https://wiki.openstack.org/wiki/Debugging_XenServer_CI_failures\n\n" +\
-                      "- check-citrix-xenserver %(log)s : %(result)s ",
+                      "- check-citrix-xenserver %(log)s : %(result)s in %(duration)s",
         }
 
     def _conf_file_contents(self):

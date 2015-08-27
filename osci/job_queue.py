@@ -33,7 +33,7 @@ class DeleteNodeThread(threading.Thread):
                                                                                constants.FINISHED,
                                                                                constants.OBSOLETE]),
                                                            Job.node_id != 0))
-            
+
             # Construct a list of all jobs that could be kept because they failed
             keep_jobs = []
             if keep_failed > 0:
@@ -100,7 +100,7 @@ class CollectResultsThread(threading.Thread):
 
     def _continue(self):
         return True
-    
+
     def run(self):
         while self._continue():
             try:
@@ -164,6 +164,18 @@ class JobQueue(object):
             return allJobs
         return []
 
+    def getJobDurationStr(self, job):
+        job_dur = job.test_stopped - job.test_started
+        dur_day = job_dur.days
+        dur_sec = job_dur.seconds
+        dur_hour, dur_sec = divmod(dur_sec, 3600)
+        dur_min, dur_sec  = divmod(dur_sec, 60)
+        dur_str  = "{:0>2d} d ".format(dur_day) if dur_day != 0 else ""
+        dur_str += "{:0>2d} h ".format(dur_hour) if ((dur_hour != 0) or (dur_str != "")) else ""
+        dur_str += "{:0>2d} m ".format(dur_min) if ((dur_min != 0) or (dur_str != "")) else ""
+        dur_str += "{:0>2d} s".format(dur_sec)
+        return dur_str
+
     def uploadResults(self, job):
         tmpPath = self.filesystem.mkdtemp(suffix=job.change_num)
 
@@ -212,9 +224,11 @@ class JobQueue(object):
                 continue
 
             if Configuration().get_bool('VOTE'):
-                message = Configuration().VOTE_MESSAGE % {'result':job.result,
-                                                        'report': job.report_url,
-                                                        'log':job.logs_url}
+                result = "SUCCESS" if job.result == 'Passed' else "FAILURE"
+                job_duration = self.getJobDurationStr(job)
+                message = Configuration().VOTE_MESSAGE % {'result':result,
+                                                        'log':job.logs_url,
+                                                        'duration': job_duration}
                 vote_num = "+1" if job.result == 'Passed' else "-1"
                 if ((vote_num == '+1') or (not Configuration().get_bool('VOTE_PASSED_ONLY'))):
                     logging.info('Posting results for %s (%s)',
