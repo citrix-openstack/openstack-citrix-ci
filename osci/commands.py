@@ -77,7 +77,7 @@ class RunTests(object):
         self.project_name = env.get('project_name')
         self.test_runner_url = env.get(
             'test_runner_url',
-            'https://git.openstack.org/stackforge/xenapi-os-testing'
+            'https://git.openstack.org/openstack/xenapi-os-testing'
         )
 
     @classmethod
@@ -96,7 +96,7 @@ class RunTests(object):
             )
         )
 
-        if self.project_name == 'stackforge/xenapi-os-testing':
+        if self.project_name == 'openstack/xenapi-os-testing':
             for instruction in instructions.update_testrunner(self.change_ref):
                 self.executor.run(
                     self.node.run(instruction)

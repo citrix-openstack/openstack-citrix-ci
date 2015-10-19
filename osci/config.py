@@ -32,7 +32,7 @@ class Configuration(object):
         'NODE_USERNAME': 'jenkins',
         'NODE_KEY': '.ssh/jenkins',
         'POLL': '30',
-        'PROJECT_CONFIG': 'openstack/nova,openstack/tempest,openstack-dev/devstack,stackforge/xenapi-os-testing,openstack-infra/devstack-gate',
+        'PROJECT_CONFIG': 'openstack/nova,openstack/tempest,openstack-dev/devstack,openstack/xenapi-os-testing,openstack-infra/devstack-gate',
         'RUN_TESTS': 'True',
         'RECHECK_REGEXP': '(citrix recheck|xenserver:? recheck|recheck xenserver)',
         'REVIEW_REPO_NAME': 'review',

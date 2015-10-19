@@ -109,7 +109,7 @@ class TestRunTests(unittest.TestCase):
         )
 
     def test_execution_update_testrunner(self):
-        cmd = commands.RunTests(dict(project_name='stackforge/xenapi-os-testing', change_ref='CHANGE'))
+        cmd = commands.RunTests(dict(project_name='openstack/xenapi-os-testing', change_ref='CHANGE'))
         cmd()
 
         self.maxDiff = 4096
@@ -119,7 +119,7 @@ class TestRunTests(unittest.TestCase):
         for instruction in instructions.update_testrunner('CHANGE'):
             expected.append(SSH_TO_NODE + instruction)
         expected.extend([
-                SSH_TO_NODE + environment.get_environment('stackforge/xenapi-os-testing', 'CHANGE')
+                SSH_TO_NODE + environment.get_environment('openstack/xenapi-os-testing', 'CHANGE')
                 + instructions.execute_test_runner()
             ])
 

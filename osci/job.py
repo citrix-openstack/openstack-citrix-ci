@@ -143,7 +143,7 @@ class Job(db.Base):
         for instruction in instructions.update_devstackgate('origin/master'):
             instruction_list.append(" ".join(instruction))
         instruction_list.append(" ".join(instructions.check_out_testrunner()))
-        if self.project_name == 'stackforge/xenapi-os-testing':
+        if self.project_name == 'openstack/xenapi-os-testing':
             for instruction in instructions.update_testrunner(self.change_ref):
                 instruction_list.append(" ".join(instruction))
         instruction_list.append("%s %s"%(" ".join(environment.get_environment(self.project_name, self.change_ref)),

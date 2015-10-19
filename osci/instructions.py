@@ -1,4 +1,4 @@
-def check_out_testrunner(testrunner_repo='https://git.openstack.org/stackforge/xenapi-os-testing'):
+def check_out_testrunner(testrunner_repo='https://git.openstack.org/openstack/xenapi-os-testing'):
     return (
         '/usr/bin/git clone'
         ' %s'
@@ -8,7 +8,7 @@ def check_out_testrunner(testrunner_repo='https://git.openstack.org/stackforge/x
 def update_testrunner(changeref):
     return [
         'pushd xenapi-os-testing'.split(),
-        ('/usr/bin/git fetch https://review.openstack.org/stackforge/xenapi-os-testing %s'%changeref).split(),
+        ('/usr/bin/git fetch https://review.openstack.org/openstack/xenapi-os-testing %s'%changeref).split(),
         '/usr/bin/git checkout FETCH_HEAD'.split(),
         'popd'.split()]
 

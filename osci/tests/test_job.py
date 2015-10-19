@@ -182,7 +182,7 @@ class TestRun(unittest.TestCase):
                                 mock_execute_command,
                                 mock_update, mock_sleep):
         job = Job(change_num="change_num", change_ref='change_ref',
-                  project_name="stackforge/xenapi-os-testing")
+                  project_name="openstack/xenapi-os-testing")
 
         nodepool = mock.Mock()
         nodepool.getNode.return_value = ('new_node', 'ip')

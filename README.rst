@@ -320,7 +320,7 @@ Run the tests on a node:
 
 .. code-block:: bash
 
-    osci-run-tests exec jenkins NODE refs/changes/41/72341/6 https://github.com/stackforge/xenapi-os-testing
+    osci-run-tests exec jenkins NODE refs/changes/41/72341/6 https://github.com/openstack/xenapi-os-testing
 
 
 ## Configuration
