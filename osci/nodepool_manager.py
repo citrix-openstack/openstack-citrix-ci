@@ -15,7 +15,8 @@ class NodePool():
         from nodepool import nodedb, nodepool
         self.nodedb = nodedb
 
-        self.pool = nodepool.NodePool(Configuration().NODEPOOL_CONFIG)
+        self.pool = nodepool.NodePool(Configuration().SECURE_CONFIG,
+                                      Configuration().NODEPOOL_CONFIG)
         config = self.pool.loadConfig()
         self.pool.reconfigureDatabase(config)
         self.pool.setConfig(config)
