@@ -28,6 +28,7 @@ class Configuration(object):
         'KEEP_FAILED': '3',
         'KEEP_FAILED_TIMEOUT': str(6*3600),
         'NODEPOOL_CONFIG': '/etc/nodepool/nodepool.yaml',
+        'SECURE_CONFIG': '/etc/nodepool/secure.conf',
         'NODEPOOL_IMAGE': 'XSDSVM',
         'NODE_USERNAME': 'jenkins',
         'NODE_KEY': '.ssh/jenkins',
