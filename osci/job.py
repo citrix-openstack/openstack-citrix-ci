@@ -32,11 +32,12 @@ class Job(db.Base):
     test_started = db.Column('test_started', db.DateTime())
     test_stopped = db.Column('test_stopped', db.DateTime())
     failed = db.Column('failed', db.Text())
+    branch = db.Column('branch', db.String(50))
 
 
     log = logging.getLogger('citrix.job')
 
-    def __init__(self, change_num=None, change_ref=None, project_name=None, commit_id=None):
+    def __init__(self, change_num=None, change_ref=None, project_name=None, commit_id=None, branch='master'):
         self.project_name = project_name
         self.change_num = change_num
         self.change_ref = change_ref
@@ -49,6 +50,7 @@ class Job(db.Base):
         self.logs_url = None
         self.report_url = None
         self.updated = self.created
+        self.branch = branch
 
     @property
     def queued(self):
@@ -146,7 +148,7 @@ class Job(db.Base):
         if self.project_name == 'openstack/xenapi-os-testing':
             for instruction in instructions.update_testrunner(self.change_ref):
                 instruction_list.append(" ".join(instruction))
-        instruction_list.append("%s %s"%(" ".join(environment.get_environment(self.project_name, self.change_ref)),
+        instruction_list.append("%s %s"%(" ".join(environment.get_environment(self.project_name, self.change_ref, self.branch)),
                                          " ".join(instructions.execute_test_runner())))
 
         for instruction in instruction_list:

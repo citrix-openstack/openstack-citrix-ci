@@ -75,6 +75,7 @@ class RunTests(object):
         self.node.keyfile = osci_config.Configuration().NODE_KEY
         self.change_ref = env.get('change_ref')
         self.project_name = env.get('project_name')
+        self.branch = env.get('branch')
         self.test_runner_url = env.get(
             'test_runner_url',
             'https://git.openstack.org/openstack/xenapi-os-testing'
@@ -86,6 +87,7 @@ class RunTests(object):
         node.Node.add_arguments_to(parser)
         parser.add_argument('change_ref')
         parser.add_argument('project_name')
+        parser.add_argument('branch')
         parser.add_argument('test_runner_url', help="Specify the url for "
                 "xenapi-os-testing repository")
 
@@ -104,7 +106,7 @@ class RunTests(object):
 
         self.executor.run(
             self.node.run(
-                environment.get_environment(self.project_name, self.change_ref)
+                environment.get_environment(self.project_name, self.change_ref, self.branch)
                 + instructions.execute_test_runner())
         )
 

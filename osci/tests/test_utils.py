@@ -20,6 +20,7 @@ class TestGerrit(unittest.TestCase):
         db = mock.Mock()
         ret_json='{"project":"openstack-infra/tripleo-ci",'+\
                   '"id":"I15431d8ede45a4fde51d0e6baa9e3cdf50c03920",'+\
+                  '"branch":"stable/liberty",'+\
                   '"number":"68139","patchSets":[{"number":"1",'+\
                   '"revision":"b678325a816c60ad3b0141c6cc6890c7c156f649"},'+\
                   '{"number":"2",'+\
@@ -29,6 +30,7 @@ class TestGerrit(unittest.TestCase):
         self.assertEqual(details['project'], 'openstack-infra/tripleo-ci')
         self.assertEqual(details['number'], '2')
         self.assertEqual(details['revision'], '430973f7d8499be075569624d0501e549a2208f2')
+        self.assertEqual(details['branch'], 'stable/liberty')
 
 class TestCopyLogs(unittest.TestCase):
     @mock.patch('os.listdir')

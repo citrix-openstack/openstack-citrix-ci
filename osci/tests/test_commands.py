@@ -49,6 +49,7 @@ class TestRunTests(unittest.TestCase):
                 'node_host',
                 'change_ref',
                 'project_name',
+                'branch',
                 'test_runner_url',
             ],
             commands.RunTests
@@ -76,7 +77,7 @@ class TestRunTests(unittest.TestCase):
 
     def test_execution(self):
         cmd = commands.RunTests(dict(
-            project_name='PROJECT', change_ref='CHANGE'))
+            project_name='PROJECT', change_ref='CHANGE', branch='BRANCH'))
         cmd()
 
         self.maxDiff = 4096
@@ -85,7 +86,7 @@ class TestRunTests(unittest.TestCase):
             [
                 SSH_TO_NODE + instructions.check_out_testrunner(),
                 SSH_TO_NODE
-                + environment.get_environment('PROJECT', 'CHANGE')
+                + environment.get_environment('PROJECT', 'CHANGE', 'BRANCH')
                 + instructions.execute_test_runner()
             ],
             cmd.executor.executed_commands
@@ -93,7 +94,7 @@ class TestRunTests(unittest.TestCase):
 
     def test_execution_with_explicit_test_runner(self):
         cmd = commands.RunTests(dict(
-            project_name='PROJECT', change_ref='CHANGE', test_runner_url='AA'))
+            project_name='PROJECT', change_ref='CHANGE', branch='BRANCH', test_runner_url='AA'))
         cmd()
 
         self.maxDiff = 4096
@@ -102,14 +103,14 @@ class TestRunTests(unittest.TestCase):
             [
                 SSH_TO_NODE + instructions.check_out_testrunner('AA'),
                 SSH_TO_NODE
-                + environment.get_environment('PROJECT', 'CHANGE')
+                + environment.get_environment('PROJECT', 'CHANGE', 'BRANCH')
                 + instructions.execute_test_runner()
             ],
             cmd.executor.executed_commands
         )
 
     def test_execution_update_testrunner(self):
-        cmd = commands.RunTests(dict(project_name='openstack/xenapi-os-testing', change_ref='CHANGE'))
+        cmd = commands.RunTests(dict(project_name='openstack/xenapi-os-testing', change_ref='CHANGE', branch='BRANCH'))
         cmd()
 
         self.maxDiff = 4096
@@ -119,7 +120,7 @@ class TestRunTests(unittest.TestCase):
         for instruction in instructions.update_testrunner('CHANGE'):
             expected.append(SSH_TO_NODE + instruction)
         expected.extend([
-                SSH_TO_NODE + environment.get_environment('openstack/xenapi-os-testing', 'CHANGE')
+                SSH_TO_NODE + environment.get_environment('openstack/xenapi-os-testing', 'CHANGE', 'BRANCH')
                 + instructions.execute_test_runner()
             ])
 

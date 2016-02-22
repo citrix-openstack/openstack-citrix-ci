@@ -142,7 +142,8 @@ def get_patchset_details(change_id, patchset_id):
     matching_patches = [i for i in patch_sets if i['number'] == patchset_id]
     matching_patch = matching_patches[0]
     matching_patch['project'] = commit_json['project']
-    return matching_patches[0]
+    matching_patch['branch'] = commit_json['branch']
+    return matching_patch
 
 
 def copy_dom0_logs(host, user, keyfile, local_directory):
