@@ -68,7 +68,7 @@ def main():
         change_num, patchset = options.change_ref.split('/')[-2:]
         patch_details = utils.get_patchset_details(change_num, patchset)
         # Verify we got the right patch back
-        queue.addJob(patch_details['ref'], patch_details['project'], patch_details['revision'])
+        queue.addJob(patch_details['ref'], patch_details['project'], patch_details['revision'], patch_details['branch'])
         return
 
     if options.run_job:

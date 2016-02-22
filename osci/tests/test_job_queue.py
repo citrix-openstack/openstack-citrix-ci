@@ -86,7 +86,7 @@ class TestInit(unittest.TestCase, QueueHelpers):
 
     def test_recheck_test(self):
         q = self._make_queue()
-        q.addJob('refs/changes/61/65261/7', 'project', 'commit')
+        q.addJob('refs/changes/61/65261/7', 'project', 'commit', 'branch')
         with q.db.get_session() as session:
             jobs = session.query(job.Job).all()
             jobs[0].state = constants.FINISHED

@@ -132,13 +132,13 @@ class JobQueue(object):
             self.deleteNodeThread = DeleteNodeThread(self)
             self.deleteNodeThread.start()
 
-    def addJob(self, change_ref, project_name, commit_id):
+    def addJob(self, change_ref, project_name, commit_id, branch='master'):
         change_num = change_ref.split('/')[3]
         existing_jobs = Job.retrieve(self.db, project_name, change_num)
         for existing in existing_jobs:
             self.log.info('Job for previous patchset (%s) already queued - replacing'%(existing))
             existing.update(self.db, state=constants.OBSOLETE)
-        job = Job(change_num, change_ref, project_name, commit_id)
+        job = Job(change_num, change_ref, project_name, commit_id, branch)
         with self.db.get_session() as session:
             self.log.info("Job for %s queued"%job.change_num)
             session.add(job)

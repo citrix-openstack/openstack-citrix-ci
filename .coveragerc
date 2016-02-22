@@ -3,11 +3,11 @@ branch = True
 include = osci*
 source = osci
 
-[xml]
-show_missing = True
-precision = 0
+#[xml]
+#show_missing = True
+#precision = 0
 
 [report]
 show_missing = True
-source = osci
+#source = osci
 omit = osci/tests/*
